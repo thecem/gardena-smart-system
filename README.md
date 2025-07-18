@@ -286,11 +286,10 @@ Use the built-in browser opener for testing:
 oauthlib==3.2.2      # OAuth2 authentication flow
 httpx>=0.24.0        # HTTP client for API requests
 websockets           # WebSocket communication with Gardena API
+backoff>=2.0.0       # Retry logic with exponential backoff
 ```
 
-**Note**: These are the minimal dependencies required for the integration to function. The exact versions are specified in `custom_components/gardena_smart_system/manifest.json`.
-
-### Local Development Setup
+**Note**: These dependencies are required for the integration to function properly. The exact versions are specified in `custom_components/gardena_smart_system/manifest.json`.### Local Development Setup
 
 If not using the dev container, set up your environment manually:
 
