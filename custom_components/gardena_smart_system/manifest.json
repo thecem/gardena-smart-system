@@ -9,8 +9,6 @@
   "codeowners": ["@thecem"],
   "requirements": [
     "oauthlib==3.2.2",
-    "authlib>=1.2.0",
-    "backoff>=2.0.0",
     "httpx>=0.24.0",
     "websockets"
   ],
