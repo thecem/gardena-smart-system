@@ -223,6 +223,59 @@ logger:
 
 ## 🔧 Development
 
+### Development Container
+
+This project includes a complete development environment using VS Code Dev Containers. The devcontainer provides:
+
+- **Pre-configured Environment**: Debian GNU/Linux 12 (bookworm) with all necessary tools
+- **Python Development**: Python 3.11+ with pip3 and Python language extensions
+- **Node.js Support**: Node.js, npm, and eslint for JavaScript development
+- **Git Integration**: Latest Git version built from source
+- **Command Line Tools**: Full suite of development tools (curl, wget, ssh, rsync, etc.)
+
+#### Getting Started with Dev Container
+
+1. **Prerequisites**:
+   - [VS Code](https://code.visualstudio.com/) with [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+   - [Docker](https://docker.com/) or [Podman](https://podman.io/)
+
+2. **Open in Dev Container**:
+   ```bash
+   # Clone the repository
+   git clone https://github.com/thecem/gardena-smart-system.git
+   cd gardena-smart-system
+
+   # Open in VS Code
+   code .
+
+   # VS Code will prompt to reopen in container
+   # Or use Command Palette: "Dev Containers: Reopen in Container"
+   ```
+
+3. **Development Features**:
+   - **Auto-completion**: Full Python IntelliSense and type checking
+   - **Debugging**: Integrated Python debugger for Home Assistant
+   - **Testing**: Pre-configured test environment
+   - **Linting**: ESLint for JavaScript and Python linting tools
+   - **Git Integration**: Full Git workflow with VS Code integration
+
+#### Development Scripts
+
+The devcontainer includes helper scripts in the `scripts/` directory:
+
+- `scripts/develop` - Start Home Assistant in development mode
+- `scripts/lint` - Run code linting and formatting
+- `scripts/release.sh` - Automated release process
+- `scripts/fix-and-release.sh` - Fix git sync issues and release
+
+#### Browser Integration
+
+Use the built-in browser opener for testing:
+```bash
+# Open Home Assistant in host browser
+"$BROWSER" http://localhost:8123
+```
+
 ### Requirements
 - Python 3.11+
 - Home Assistant 2025.2.4+
@@ -236,12 +289,42 @@ httpx>=0.24.0
 websockets
 ```
 
+### Local Development Setup
+
+If not using the dev container, set up your environment manually:
+
+1. **Install Python Dependencies**:
+   ```bash
+   pip3 install -r requirements.txt
+   ```
+
+2. **Install Home Assistant**:
+   ```bash
+   pip3 install homeassistant
+   ```
+
+3. **Development Configuration**:
+   - Copy the integration to your HA config directory
+   - Enable debug logging in `configuration.yaml`
+   - Restart Home Assistant
+
 ### Contributing
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
+3. Make your changes using the dev container
 4. Add tests if applicable
-5. Submit a pull request
+5. Run linting: `scripts/lint`
+6. Submit a pull request
+
+### VS Code Tasks
+
+The project includes pre-configured VS Code tasks:
+
+- **Run Debug (Home Assistant Core)**: Start HA in debug mode
+- **Run Lint**: Execute code linting and formatting
+- **Run Tests**: Execute test suite (if available)
+
+Access tasks via: `Terminal` → `Run Task` or `Ctrl+Shift+P` → `Tasks: Run Task`
 
 ## 📝 Changelog
 
