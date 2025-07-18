@@ -10,7 +10,8 @@
   "requirements": [
     "oauthlib==3.2.2",
     "httpx>=0.24.0",
-    "websockets"
+    "websockets",
+    "backoff>=2.0.0"
   ],
   "integration_type": "service",
   "iot_class": "cloud_polling"
