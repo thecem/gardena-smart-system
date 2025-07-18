@@ -1,0 +1,58 @@
+start_override:
+  target:
+    entity:
+      integration: "gardena_smart_system"
+      domain: "lawn_mower"
+  fields:
+    duration:
+      required: true
+      example: "3600"
+      default: "3600"
+      selector:
+        number:
+          min: 1
+          max: 86400
+          unit_of_measurement: seconds
+          mode: box
+
+reload:
+  description: Reload the Gardena Smart System integration.
+
+websocket_diagnostics:
+  description: Get WebSocket connection diagnostics and status information.
+  response:
+    optional: true
+  fields:
+    detailed:
+      description: Include detailed connection information.
+      example: true
+      default: false
+      selector:
+        boolean:
+
+start_mowing:
+  name: Start mowing
+  description: Start mowing for a specific duration
+  fields:
+    duration:
+      name: Duration
+      description: Duration in minutes
+      required: false
+      default: 60
+      selector:
+        number:
+          min: 1
+          max: 480
+          unit_of_measurement: minutes
+
+park_until_next_task:
+  name: Park until next task
+  description: Park the mower until the next scheduled task
+
+park_until_further_notice:
+  name: Park until further notice
+  description: Park the mower until manually restarted
+
+start_dont_override:
+  name: Start automatic mode
+  description: Start the mower in automatic mode (following schedule)

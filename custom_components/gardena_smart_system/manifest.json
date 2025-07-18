@@ -1,0 +1,19 @@
+{
+  "domain": "gardena_smart_system",
+  "name": "Gardena Smart System integration",
+  "version": "1.0.2",
+  "config_flow": true,
+  "documentation": "https://github.com/thecem/gardena-smart-system",
+  "issue_tracker": "https://github.com/thecem/gardena-smart-system/issues",
+  "dependencies": [],
+  "codeowners": ["@thecem"],
+  "requirements": [
+    "oauthlib==3.2.2",
+    "authlib>=1.2.0",
+    "backoff>=2.0.0",
+    "httpx>=0.24.0",
+    "websockets"
+  ],
+  "integration_type": "service",
+  "iot_class": "cloud_polling"
+}

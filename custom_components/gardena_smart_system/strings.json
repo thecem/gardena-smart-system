@@ -1,0 +1,47 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_account%]"
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Gardena Smart System",
+      "invalid_auth": "Invalid authentication credentials",
+      "too_many_requests": "Too many requests, retry later.",
+      "unknown": "Unexpected error occurred"
+    },
+    "step": {
+      "user": {
+        "description": "Enter your Gardena Smart System API credentials",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client Secret"
+        },
+        "title": "Gardena Smart System"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "user": {
+        "data": {
+          "mower_duration": "Mower Duration (minutes)",
+          "smart_irrigation_control_duration": "Smart Irrigation Control Duration (minutes)",
+          "smart_watering_duration": "Smart Watering Duration (minutes)"
+        },
+        "title": "Gardena Smart System - Options"
+      }
+    }
+  },
+  "services": {
+    "start_override": {
+      "name": "Start override",
+      "description": "Start the mower immediately for specific duration and override the schedule.",
+      "fields": {
+        "duration": {
+          "name": "Duration",
+          "description": "The duration in seconds."
+        }
+      }
+    }
+  }
+}
