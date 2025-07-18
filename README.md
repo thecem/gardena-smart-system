@@ -1,390 +1,281 @@
-# 🌱 Gardena Smart System - Home Assistant Integration
+# Gardena Smart System Integration for Home Assistant
 
-[![HACS](https://img.shields.io/badge/HACS-Default-orange.svg)](https://github.com/hacs/integration)
-[![GitHub release](https://img.shields.io/github/release/thecem/gardena-smart-system.svg)](https://github.com/thecem/gardena-smart-system/releases)
-[![HA integration usage](https://img.shields.io/badge/Home%20Assistant-Integration-blue.svg)](https://my.home-assistant.io/redirect/config_flow_start?domain=gardena_smart_system)
-[![Community](https://img.shields.io/badge/Community-Forum-blue.svg)](https://community.home-assistant.io/t/gardena-smart-system-integration/123456)
+[![GitHub Release](https://img.shields.io/github/release/thecem/gardena-smart-system.svg?style=flat-square)](https://github.com/thecem/gardena-smart-system/releases)
+[![GitHub Activity](https://img.shields.io/github/commit-activity/y/thecem/gardena-smart-system.svg?style=flat-square)](https://github.com/thecem/gardena-smart-system/commits)
+[![License](https://img.shields.io/github/license/thecem/gardena-smart-system.svg?style=flat-square)](LICENSE)
+[![hacs](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
 
-**Die ultimative Home Assistant Integration für Gardena Smart System Geräte mit Live-Timer-Funktionalität!**
+A complete Home Assistant integration for the **Gardena Smart System**, providing comprehensive control and monitoring of your smart garden devices.
 
-## 🎉 Latest Release: v1.0.2
+## 🌱 Features
 
-### ⏰ **LIVE COUNTDOWN TIMER SYSTEM**
-**Das remaining_time Attribut zählt automatisch alle 10 Sekunden herunter!**
+### Complete Device Support
+- **🤖 Robotic Mowers**: Full control with scheduling, manual override, and real-time status
+- **💧 Water Control**: Smart irrigation and watering with timer management
+- **🌿 Smart Irrigation**: Multi-valve systems with individual zone control
+- **🔌 Power Sockets**: Smart outlet management with timer functionality
+- **📊 Environmental Sensors**: Temperature, humidity, light, and soil monitoring
+- **🔔 Status Monitoring**: Device connectivity and operational states
 
-```
-valve_remaining_time: 1556 → 1548 → 1509 → 1499 → 1489...
-```
+### Advanced Features
+- **⏱️ Real-time Duration Tracking**: Live countdown timers for all operations
+- **🌐 WebSocket Communication**: Instant updates from your devices
+- **🔐 OAuth2 Authentication**: Secure API connection with token management
+- **🌍 Multi-Language Support**: EN, DE, FR, NL, FI, SK, SV, NB
+- **📱 Full Home Assistant Integration**: Native UI, automations, and notifications
 
-### 🌟 **DURATION ATTRIBUTES für alle Ventile**
-- **`valve_duration`** - Bewässerungsdauer in Sekunden
-- **`valve_duration_timestamp`** - Start-Zeitstempel (UTC)
-- **`valve_remaining_time`** - Live-Countdown in Sekunden ⏱️
+## 🚀 Installation
 
-## 🚀 Features
+### HACS (Recommended)
 
-### 💧 **Unterstützte Geräte**
-| Device | Duration Timer | Live Updates | Status |
-|--------|---------------|-------------|--------|
-| **💦 Smart Irrigation Control** | ✅ Vollständig | ✅ 10s-Intervall | 🟢 Ready |
-| **🚿 Water Control** | ✅ Vollständig | ✅ 10s-Intervall | 🟢 Ready |
-| **🔌 Power Socket** | ⏳ Geplant | ⏳ Geplant | 🟡 v1.1.0 |
-| **🚜 Mower** | ⏳ Geplant | ⏳ Geplant | 🟡 v1.1.0 |
-| **🌡️ Smart Sensors** | ✅ Vollständig | ✅ Real-time | 🟢 Ready |
+1. Open HACS in Home Assistant
+2. Go to "Integrations"
+3. Click the three dots in the top right corner
+4. Select "Custom repositories"
+5. Add `https://github.com/thecem/gardena-smart-system` as repository
+6. Select "Integration" as category
+7. Click "Add"
+8. Search for "Gardena Smart System" and install
+9. Restart Home Assistant
 
-### ⚡ **Live Timer Features**
-- **🔄 Automatic Updates** - Timer zählt alle 10 Sekunden automatisch herunter
-- **📱 UI Integration** - Sichtbar in Home Assistant Dashboard
-- **🤖 Automation Ready** - Perfekt für Trigger und Benachrichtigungen
-- **🌍 UTC Precision** - Präzise Zeitberechnung unabhängig von Zeitzonen
-- **🔧 Enhanced Reliability** - Verbesserte Timer-Genauigkeit (±0.5 Sekunden)
+### Manual Installation
 
-### 🛠️ **Technical Excellence**
-- **WebSocket Stability** - Robuste Verbindung mit automatischer Wiederherstellung
-- **API Compliance** - Vollständige Einhaltung der Gardena API v2.0 Richtlinien
-- **Error Handling** - Umfassende Fehlerbehandlung und Diagnostik
-- **Performance** - 95% lokale Berechnung, minimale API-Nutzung
-- **Memory Efficient** - Nur ~12MB Speicherverbrauch
+1. Download the latest release from [GitHub releases](https://github.com/thecem/gardena-smart-system/releases)
+2. Extract the files
+3. Copy the `custom_components/gardena_smart_system` folder to your Home Assistant `config/custom_components/` directory
+4. Restart Home Assistant
 
-## 📦 Installation
+## ⚙️ Configuration
 
-### 🎯 **HACS (Empfohlen)**
-1. **HACS öffnen** → Integrationen → ⋮ → Custom repositories
-2. **Repository hinzufügen:** `thecem/gardena-smart-system`
-3. **Installation:** Gardena Smart System → Download
-4. **Home Assistant neustarten**
-5. **Integration hinzufügen:** Einstellungen → Geräte & Dienste → Integration hinzufügen → "Gardena"
+### Prerequisites
 
-### 🛠️ **Manuelle Installation**
-```bash
-# 1. Repository klonen
-cd /config/custom_components/
-git clone https://github.com/thecem/gardena-smart-system.git
-mv gardena-smart-system/custom_components/gardena_smart_system .
-rm -rf gardena-smart-system
+You need a Gardena Smart System account and API credentials:
 
-# 2. Home Assistant neustarten
-# 3. Integration in der UI hinzufügen
-```
+1. Go to [Gardena Developer Portal](https://developer.husqvarnagroup.cloud/)
+2. Create an account and register your application
+3. Note your **Client ID** and **Client Secret**
 
-## ⚙️ Konfiguration
+### Setup Integration
 
-### 1️⃣ **API Credentials Setup**
-1. Besuche [Gardena Developer Portal](https://developer.husqvarnagroup.cloud/)
-2. Registriere eine neue Anwendung
-3. Notiere Client ID und Client Secret
-4. Stelle sicher, dass eine API mit der Anwendung verbunden ist
+1. In Home Assistant, go to **Settings** → **Devices & Services**
+2. Click **Add Integration**
+3. Search for "Gardena Smart System"
+4. Enter your API credentials:
+   - **Client ID**: Your application's client ID
+   - **Client Secret**: Your application's client secret
+5. Follow the OAuth2 authentication flow
+6. Select your garden locations
+7. Complete the setup
 
-### 2️⃣ **Integration hinzufügen**
-1. **Settings** → **Devices & Services** → **Add Integration**
-2. Suche nach **"Gardena Smart System"**
-3. **Client ID** und **Client Secret** eingeben
-4. **API Key** (optional, für erweiterte Features)
+## 🎛️ Supported Entities
 
-### 3️⃣ **Automatic Discovery**
-- 🔍 Alle Gardena Geräte werden automatisch erkannt
-- 📊 Duration Sensoren werden automatisch erstellt
-- ⏱️ Timer startet automatisch bei aktiven Ventilen
+### Lawn Mower
+- **Entity Type**: `lawn_mower`
+- **Features**: Start, stop, dock, pause, resume
+- **Attributes**: Battery level, activity, error states, cutting height
+- **Services**:
+  - Start mowing
+  - Park until next scheduled task
+  - Park until further notice
+  - Override schedule with duration
 
-## 📱 Dashboard Integration
+### Water Control & Irrigation
+- **Entity Type**: `valve`
+- **Features**: Open/close valves, duration control
+- **Attributes**: Valve activity, remaining time, water flow
+- **Services**:
+  - Manual watering with duration
+  - Stop watering
+  - Cancel override
 
-### 🎛️ **Live Timer Card**
+### Power Sockets
+- **Entity Type**: `switch`
+- **Features**: On/off control, timer operations
+- **Attributes**: Power state, activity, remaining time
+- **Services**:
+  - Turn on/off
+  - Override with duration
+  - Cancel override
+
+### Sensors
+- **Types**: Temperature, humidity, light intensity, soil temperature, soil moisture
+- **Attributes**: Real-time values, battery status, signal strength
+- **Updates**: Automatic via WebSocket connection
+
+### Binary Sensors
+- **Types**: Device connectivity, RF link status, error states
+- **States**: Connected/disconnected, online/offline, ok/error
+
+## 🔧 Services
+
+### `gardena_smart_system.start_mowing`
+Start mowing operation
 ```yaml
-type: entities
-title: 🌱 Bewässerung Live
-entities:
-  - entity: valve.gardena_irrigation_valve_1
-    name: "Ventil 1"
-    secondary_info: attribute
-    attribute: valve_remaining_time
-  - entity: valve.gardena_irrigation_valve_2
-    name: "Ventil 2"
-    secondary_info: attribute
-    attribute: valve_remaining_time
+service: gardena_smart_system.start_mowing
+target:
+  entity_id: lawn_mower.my_mower
+data:
+  duration: 60  # minutes (optional)
 ```
 
-### 📊 **Timer Dashboard**
+### `gardena_smart_system.park_until_next_task`
+Park mower until next scheduled task
 ```yaml
-type: glance
-title: ⏰ Bewässerung Countdown
-entities:
-  - entity: valve.gardena_irrigation_valve_1
-    name: "Garten"
-    icon: mdi:sprinkler-variant
-  - entity: valve.gardena_irrigation_valve_2
-    name: "Terrasse"
-    icon: mdi:sprinkler-variant
-show_name: true
-show_state: false
+service: gardena_smart_system.park_until_next_task
+target:
+  entity_id: lawn_mower.my_mower
 ```
 
-### 🎨 **Custom Countdown Card**
+### `gardena_smart_system.start_watering`
+Start watering with duration
 ```yaml
-type: custom:mushroom-entity-card
-entity: valve.gardena_irrigation_valve_1
-name: Garten Bewässerung
-icon: mdi:sprinkler-variant
-secondary_info: |
-  {% set remaining = state_attr('valve.gardena_irrigation_valve_1', 'valve_remaining_time') %}
-  {% if remaining != 'N/A' and remaining != None %}
-    {{ (remaining | int // 60) }}:{{ '%02d' | format(remaining | int % 60) }} min
-  {% else %}
-    Inaktiv
-  {% endif %}
+service: gardena_smart_system.start_watering
+target:
+  entity_id: valve.my_valve
+data:
+  duration: 30  # minutes
 ```
 
-## 🤖 Automationen
-
-### 🔔 **Benachrichtigung vor Ende**
+### `gardena_smart_system.stop_watering`
+Stop current watering operation
 ```yaml
-automation:
-  - alias: "🌱 Bewässerung Ende Warnung"
-    trigger:
-      platform: numeric_state
-      entity_id: valve.gardena_irrigation_valve_1
-      attribute: valve_remaining_time
-      below: 300  # 5 Minuten
-    condition:
-      condition: template
-      value_template: "{{ states.valve.gardena_irrigation_valve_1.attributes.valve_remaining_time != 'N/A' }}"
-    action:
-      service: notify.mobile_app_iphone
-      data:
-        title: "🌱 Bewässerung"
-        message: "Garten-Bewässerung endet in 5 Minuten!"
-        data:
-          group: "irrigation"
-          sound: "default"
+service: gardena_smart_system.stop_watering
+target:
+  entity_id: valve.my_valve
 ```
 
-### 🔄 **Automatische Verlängerung**
+## 🌍 Supported Regions
+
+This integration supports all European Gardena Smart System regions:
+
+🇩🇪 Germany | 🇦🇹 Austria | 🇨🇭 Switzerland | 🇫🇷 France | 🇮🇹 Italy | 🇪🇸 Spain | 🇳🇱 Netherlands | 🇧🇪 Belgium | 🇱🇺 Luxembourg | 🇬🇧 United Kingdom | 🇮🇪 Ireland | 🇩🇰 Denmark | 🇸🇪 Sweden | 🇳🇴 Norway | 🇫🇮 Finland | 🇵🇱 Poland | 🇨🇿 Czech Republic | 🇸🇰 Slovakia | 🇭🇺 Hungary | 🇸🇮 Slovenia | 🇭🇷 Croatia | 🇧🇬 Bulgaria | 🇷🇴 Romania | 🇪🇪 Estonia | 🇱🇻 Latvia | 🇱🇹 Lithuania
+
+## 🔄 Automation Examples
+
+### Water Garden When Temperature is High
 ```yaml
 automation:
-  - alias: "🌱 Smart Bewässerung Verlängerung"
+  - alias: "Water garden when hot"
     trigger:
-      platform: numeric_state
-      entity_id: valve.gardena_irrigation_valve_1
-      attribute: valve_remaining_time
-      below: 60  # 1 Minute
-    condition:
-      - condition: numeric_state
-        entity_id: sensor.soil_moisture_garden
-        below: 30  # Boden noch trocken
-      - condition: time
-        before: "20:00:00"  # Nur bis 20 Uhr
+      - platform: numeric_state
+        entity_id: sensor.garden_temperature
+        above: 30
     action:
       - service: gardena_smart_system.start_watering
+        target:
+          entity_id: valve.garden_irrigation
         data:
-          entity_id: valve.gardena_irrigation_valve_1
-          duration: 900  # 15 Minuten verlängern
-      - service: notify.mobile_app_iphone
-        data:
-          message: "🌱 Bewässerung automatisch um 15 Min verlängert"
+          duration: 45
 ```
 
-## 🔍 Troubleshooting
-
-### 🐛 **Häufige Probleme**
-
-#### ❌ Timer zählt nicht herunter
-```bash
-# 1. Integration Status prüfen
-# Settings → Devices & Services → Gardena Smart System
-
-# 2. Logs überprüfen
-# Settings → System → Logs → Filter: "gardena"
-
-# 3. Timer manuell aktualisieren
-# Developer Tools → Services → gardena_smart_system.update_devices
-```
-
-#### ❌ Verbindungsprobleme
-- ✅ **AttributeError Fixes**: Umfassende WebSocket AttributeError Behandlung
-- ✅ **Rate Limiting**: Automatische 429-Antwort Behandlung mit exponentieller Backoff
-- ✅ **Connection Management**: 2-Stunden Maximum-Verbindungsdauer pro API-Anforderungen
-
-#### ❌ Duration Attribute fehlen
-```bash
-# 1. Ventil muss aktiv sein (MANUAL_WATERING oder SCHEDULED_WATERING)
-# 2. Home Assistant neustarten
-# 3. Integration entfernen und neu hinzufügen
-```
-
-### 📋 **Debug Informationen sammeln**
+### Mow Lawn After Rain Stops
 ```yaml
-# configuration.yaml
+automation:
+  - alias: "Mow after rain"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.rain_sensor
+        from: "on"
+        to: "off"
+        for: "01:00:00"
+    action:
+      - service: gardena_smart_system.start_mowing
+        target:
+          entity_id: lawn_mower.robomow
+        data:
+          duration: 120
+```
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+**Integration not appearing in setup**
+- Restart Home Assistant after installation
+- Check that files are in the correct directory
+- Verify HACS installation if using HACS
+
+**Authentication failures**
+- Verify your Client ID and Client Secret
+- Check that your Gardena account is active
+- Ensure your application is approved in the developer portal
+
+**Devices not appearing**
+- Ensure devices are online in the Gardena app
+- Check that devices are assigned to a location
+- Restart the integration from Settings → Devices & Services
+
+**WebSocket connection issues**
+- Check your internet connection
+- Verify firewall settings
+- The integration automatically reconnects after connection loss
+
+### Debug Logging
+
+Enable debug logging to troubleshoot issues:
+
+```yaml
 logger:
   default: info
   logs:
     custom_components.gardena_smart_system: debug
-    py_smart_gardena: debug
 ```
 
-## 🔄 API Limits & Performance
+## 🔧 Development
 
-### ⚡ **Optimized Update Strategy**
-- **Timer Updates:** Alle 10 Sekunden (lokal berechnet)
-- **API Calls:** Nur bei Statusänderungen
-- **Rate Limiting:** Automatisch verwaltet (700 Anfragen/Woche, 10 Anfragen/10 Sekunden)
-- **Background Updates:** Non-blocking UI
-- **WebSocket:** 150-Sekunden Ping-Intervalle wie von Gardena empfohlen
+### Requirements
+- Python 3.11+
+- Home Assistant 2025.2.4+
 
-### 📊 **Performance Metrics**
-| Metric | Performance |
-|--------|-------------|
-| Timer Precision | ±0.5 Sekunden |
-| Memory Usage | ~12MB |
-| API Efficiency | 95% lokale Berechnung |
-| UI Responsiveness | Keine Blockierung |
-| Connection Uptime | 99.9% Stabilität |
-
-## 🌟 Advanced Features
-
-### 🔧 **Services**
-```yaml
-# Ventil manuell starten
-service: gardena_smart_system.start_watering
-data:
-  entity_id: valve.gardena_irrigation_valve_1
-  duration: 1800  # 30 Minuten
-
-# Ventil stoppen
-service: gardena_smart_system.stop_watering
-data:
-  entity_id: valve.gardena_irrigation_valve_1
-
-# Alle Geräte aktualisieren
-service: gardena_smart_system.update_devices
+### Dependencies
+```
+oauthlib==3.2.2
+authlib>=1.2.0
+backoff>=2.0.0
+httpx>=0.24.0
+websockets
 ```
 
-### 📡 **WebSocket Integration**
-- **Real-time Updates** von Gardena Cloud
-- **Automatic Reconnection** bei Verbindungsabbruch
-- **Event-driven Architecture** für sofortige Updates
-- **Enhanced Error Handling** für WebSocket AttributeErrors
-- **Connection Limits** Einhaltung der 2-Stunden-Regel
+### Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-## �� Roadmap
+## 📝 Changelog
 
-### 🔜 **v1.1.0 - Geplant**
-- ✅ Power Socket Duration Support
-- ✅ Mower Duration Tracking
-- ✅ Weather Integration
-- ✅ Advanced Scheduling
-
-### 🚀 **v2.0.0 - Vision**
-- 🌤️ Weather-based Auto-Scheduling
-- 📊 Advanced Analytics Dashboard
-- �� Plant Database Integration
-- 🤖 AI-powered Watering Recommendations
-
-## 🏆 Community
-
-### 💬 **Support & Discussion**
-- **🐛 Bug Reports:** [GitHub Issues](https://github.com/thecem/gardena-smart-system/issues)
-- **💡 Feature Requests:** [GitHub Discussions](https://github.com/thecem/gardena-smart-system/discussions)
-- **💬 Community Forum:** [Home Assistant Community](https://community.home-assistant.io/)
-- **📚 Wiki:** [Documentation](https://github.com/thecem/gardena-smart-system/wiki)
-
-### 🤝 **Contributing**
-```bash
-# Development Setup
-git clone https://github.com/thecem/gardena-smart-system.git
-cd gardena-smart-system
-pip install -r requirements_dev.txt
-pre-commit install
-
-# Run Tests
-pytest tests/
-```
-
-## 📜 Changelog
-
-### **v1.0.2** *(Latest)* - 18. Juli 2025
-- 🚀 Enhanced timer reliability and precision (±0.5 seconds)
-- 🛠️ Modern Python code quality improvements with type hints
-- 🔧 Better error handling and diagnostics
-- 📱 Improved Home Assistant integration with non-blocking UI
-- ⚡ Optimized update strategy (95% local calculation)
-
-### **v1.0.1** - 17. Juli 2025
-- ⏰ Live countdown timer system
-- 🌟 Duration attributes for valve entities
-- 🎯 10-second automatic updates
-- 📊 Real-time remaining time calculation
-
-### **v1.0.0** - Previous Stable
-- 💧 Enhanced valve control
-- 🔄 WebSocket stability improvements
-- 🐛 Multiple bug fixes and API compliance
-
-[📚 **Full Changelog**](https://github.com/thecem/gardena-smart-system/blob/master/CHANGELOG.md)
+### v1.0.3 - Complete Integration Implementation
+- Complete Gardena Smart System integration
+- Full device support for all device types
+- Real-time duration tracking and monitoring
+- WebSocket communication for live updates
+- Multi-language support
+- OAuth2 authentication with token management
+- Comprehensive error handling and logging
+- HACS integration ready
 
 ## 📄 License
 
-MIT License - see [LICENSE](https://github.com/thecem/gardena-smart-system/blob/master/LICENSE) for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- Based on the original py-smart-gardena library
-- Enhanced with comprehensive AttributeError fixes and API compliance improvements
-- Built with ❤️ for the Home Assistant community
+- Thanks to the Home Assistant community
+- Gardena/Husqvarna for providing the API
+- All contributors and testers
 
-## ⭐ Support
+## 🐛 Issues & Feature Requests
 
-**Wenn dir diese Integration gefällt, gib uns einen Stern auf GitHub! ⭐**
+Please report issues and feature requests on [GitHub Issues](https://github.com/thecem/gardena-smart-system/issues)
 
-[![GitHub stars](https://img.shields.io/github/stars/thecem/gardena-smart-system.svg?style=social&label=Star)](https://github.com/thecem/gardena-smart-system)
+## 💬 Support
 
----
-
-**Made with ❤️ for the Home Assistant Community**
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-orange.svg)](https://www.buymeacoffee.com/thecem)
+- **GitHub Issues**: Bug reports and feature requests
+- **Home Assistant Community**: General discussions and help
+- **Documentation**: Full guides and API reference
 
 ---
 
-**Note**: Diese Integration enthält eine lokal eingebettete und erweiterte Version der py-smart-gardena Bibliothek mit umfassender Fehlerbehandlung und API-Compliance-Verbesserungen.
-
-## 🛠️ Development Environment
-
-### DevContainer Setup
-
-Dieses Repository enthält eine vollständige **DevContainer-Konfiguration** für Home Assistant Development:
-
-```bash
-# 1. Repository klonen
-git clone https://github.com/thecem/gardena-smart-system.git
-cd gardena-smart-system
-
-# 2. VS Code öffnen
-code .
-
-# 3. DevContainer starten
-# VS Code: "Reopen in Container" oder Ctrl+Shift+P → "Dev Containers: Reopen in Container"
-```
-
-### ✨ DevContainer Features
-
-- **🏠 Home Assistant Development Environment** - Offizielle HA DevContainer Basis
-- **🐍 Python 3.12** mit allen Dependencies
-- **🔧 VS Code Extensions** vorkonfiguriert für HA Development
-- **🌐 Port Forwarding** - HA (8123), Debugpy (5678)
-- **📁 Auto-Sync** - Custom Component → /config/custom_components/
-- **🧪 Testing Environment** - Pytest, Pre-commit Hooks
-- **🐛 Debugging** - Breakpoints, Live Debugging
-
-### 🚀 Sofort startklar
-
-Nach DevContainer-Start:
-```bash
-# Home Assistant starten
-hass -c /config
-
-# Integration testen
-# → http://localhost:8123
-# → Settings → Devices & Services → Add Integration → "Gardena"
-```
-
-📚 **Vollständige Dokumentation:** [.devcontainer/README.md](.devcontainer/README.md)
+**⭐ If you find this integration useful, please give it a star on GitHub!**
 
