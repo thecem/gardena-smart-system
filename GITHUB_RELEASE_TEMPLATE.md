@@ -17,7 +17,7 @@ This release represents a complete implementation of the Gardena Smart System in
 
 ### 🌱 Complete Device Support
 - **🤖 Mower Management**: Full lawn mower control with scheduling, manual override, and status monitoring
-- **💧 Water Control**: Smart irrigation and watering control with timer management  
+- **💧 Water Control**: Smart irrigation and watering control with timer management
 - **🌿 Smart Irrigation**: Multi-valve irrigation systems with individual valve control
 - **🔌 Power Socket Control**: Smart power outlet management with timer functionality
 - **📊 Sensor Integration**: Temperature, humidity, light, and soil sensors
@@ -54,7 +54,7 @@ Languages: English, German, French, Dutch, Finnish, Slovak, Swedish, Norwegian
 
 ## ⚙️ Configuration
 1. Navigate to **Settings > Devices & Services**
-2. Click **Add Integration**  
+2. Click **Add Integration**
 3. Search for "Gardena Smart System"
 4. Enter your API credentials (Client ID and Client Secret)
 5. Complete setup

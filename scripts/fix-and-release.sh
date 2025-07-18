@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Release Script for Gardena Smart System v1.0.3
-# This script will commit changes, create a tag, and push to repository
+# Git Sync and Release Fix Script
+# This script handles the non-fast-forward issue by syncing with remote first
 
 set -e
 
-echo "🚀 Starting release process for Gardena Smart System v1.0.3"
+echo "🔧 Fixing git sync issue and preparing for release..."
 
 # Check if we're in a git repository
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
@@ -13,19 +13,36 @@ if ! git rev-parse --git-dir > /dev/null 2>&1; then
     exit 1
 fi
 
+# Stash any uncommitted changes
+echo "💾 Stashing uncommitted changes..."
+git stash push -m "Pre-release stash $(date)" || {
+    echo "ℹ️  No changes to stash"
+}
+
 # Pull latest changes from remote
 echo "🔄 Pulling latest changes from remote..."
-git pull origin main || {
-    echo "⚠️  Pull failed, but continuing with release..."
+git pull origin main --rebase || {
+    echo "❌ Failed to pull and rebase. Please resolve conflicts manually."
+    exit 1
+}
+
+# Apply stashed changes back
+echo "🔄 Applying stashed changes..."
+git stash pop || {
+    echo "ℹ️  No stash to apply"
 }
 
 # Stage all changes
 echo "📦 Staging changes..."
 git add .
 
-# Commit with the release message
-echo "💾 Committing changes..."
-git commit -m "Release v1.0.3 - Complete Gardena Smart System Integration
+# Check if there are any changes to commit
+if git diff --cached --quiet; then
+    echo "ℹ️  No changes to commit"
+else
+    # Commit with the release message
+    echo "💾 Committing changes..."
+    git commit -m "Release v1.0.3 - Complete Gardena Smart System Integration
 
 - Complete implementation of Gardena Smart System integration
 - Full device support: mowers, water control, irrigation, power sockets
@@ -35,9 +52,8 @@ git commit -m "Release v1.0.3 - Complete Gardena Smart System Integration
 - OAuth2 authentication with token management
 - Comprehensive error handling and logging
 - HACS integration ready
-- Supports all European Gardena Smart System regions" || {
-    echo "ℹ️  No changes to commit, continuing with tag creation..."
-}
+- Supports all European Gardena Smart System regions"
+fi
 
 # Check if tag already exists
 if git tag -l | grep -q "^v1.0.3$"; then
@@ -52,14 +68,8 @@ git tag -a v1.0.3 -m "Release v1.0.3 - Complete Gardena Smart System Integration
 
 # Push changes and tags to remote
 echo "🌐 Pushing to remote repository..."
-git push origin main || {
-    echo "❌ Failed to push main branch"
-    exit 1
-}
-git push origin v1.0.3 || {
-    echo "❌ Failed to push tag"
-    exit 1
-}
+git push origin main
+git push origin v1.0.3
 
 echo "✅ Release v1.0.3 completed successfully!"
 echo ""
