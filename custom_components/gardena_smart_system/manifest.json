@@ -1,6 +1,6 @@
 {
   "domain": "gardena_smart_system",
-  "name": "Gardena Smart System integration",
+  "name": "Gardena Smart System",
   "version": "1.0.3",
   "config_flow": true,
   "documentation": "https://github.com/thecem/gardena-smart-system",
