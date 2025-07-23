@@ -5,6 +5,10 @@ import logging
 import sys
 from pathlib import Path
 
+from homeassistant.helpers import config_validation as cv
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema("gardena_smart_system")
+
 # Ensure gardena module can be imported
 current_dir = Path(__file__).parent
 if str(current_dir) not in sys.path:
