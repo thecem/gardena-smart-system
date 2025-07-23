@@ -1,6 +1,5 @@
 {
   "name": "Gardena Smart System",
-  "content_in_root": false
-  "hacs": "2.0.5",
+  "content_in_root": false,
   "homeassistant": "2025.7.2"
 }
