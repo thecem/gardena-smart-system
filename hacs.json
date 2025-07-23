@@ -1,10 +1,6 @@
 {
   "name": "Gardena Smart System",
-  "hacs": "2.0.5",
-  "domains": ["sensor", "switch", "valve", "lawn_mower", "binary_sensor", "button"],
-  "iot_class": "Cloud Push",
-  "homeassistant": "2025.7.2",
-  "render_readme": true,
-  "country": ["DE", "AT", "CH", "FR", "IT", "ES", "NL", "BE", "LU", "UK", "IE", "DK", "SE", "NO", "FI", "PL", "CZ", "SK", "HU", "SI", "HR", "BG", "RO", "EE", "LV", "LT"],
   "content_in_root": false
+  "hacs": "2.0.5",
+  "homeassistant": "2025.7.2"
 }
