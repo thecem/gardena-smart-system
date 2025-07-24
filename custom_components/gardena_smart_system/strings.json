@@ -4,17 +4,19 @@
       "already_configured": "[%key:common::config_flow::abort::already_configured_account%]"
     },
     "error": {
-      "cannot_connect": "Failed to connect to Gardena Smart System",
-      "invalid_auth": "Invalid authentication credentials",
-      "too_many_requests": "Too many requests, retry later.",
-      "unknown": "Unexpected error occurred"
+      "cannot_connect": "Failed to connect to Gardena Smart System. Check your internet connection.",
+      "invalid_auth": "Invalid Client ID or Client Secret. Please verify your credentials.",
+      "too_many_requests": "Rate limit exceeded. Please wait a few minutes and try again.",
+      "simultaneous_login": "Multiple connections detected. Close other Gardena apps and try again.",
+      "forbidden": "Access denied. Check if your API application is properly configured.",
+      "unknown": "Unexpected error occurred. Please check your credentials and try again."
     },
     "step": {
       "user": {
-        "description": "Enter your Gardena Smart System API credentials",
+        "description": "Enter your Gardena Smart System API credentials.\n\nTo get these credentials:\n1. Go to https://developer.husqvarnagroup.cloud/\n2. Create a new application\n3. Copy the Application Key (Client ID) and Application Secret (Client Secret)\n4. Make sure to connect the Authentication API and Smart System API to your application",
         "data": {
-          "client_id": "Client ID",
-          "client_secret": "Client Secret"
+          "client_id": "Application Key (Client ID)",
+          "client_secret": "Application Secret (Client Secret)"
         },
         "title": "Gardena Smart System"
       }

@@ -8,7 +8,7 @@ from .base_device import BaseDevice
 class WaterControl(BaseDevice):
     """Water control device for smart valve management."""
 
-    def __init__(self, location, device_map):
+    def __init__(self, location, device_map) -> None:
         """Initialize the water control device."""
         BaseDevice.__init__(self, location, device_map["COMMON"][0]["id"])
         self.type = "WATER_CONTROL"
@@ -26,7 +26,7 @@ class WaterControl(BaseDevice):
 
         self.setup_values_from_device_map(device_map)
 
-    def update_device_specific_data(self, device_map):
+    def update_device_specific_data(self, device_map) -> None:
         """Update water control specific data."""
         if device_map["type"] == "VALVE_SET":
             self.valve_set_id = device_map["id"]
@@ -40,7 +40,7 @@ class WaterControl(BaseDevice):
             # Duration attributes for valve operations
             self.set_duration_attributes("valve", device_map, "valveDuration")
 
-    async def start_seconds_to_override(self, duration):
+    async def start_seconds_to_override(self, duration) -> None:
         """Start valve override operation for specified duration in seconds."""
         data = {
             "id": str(uuid.uuid1()),
@@ -49,7 +49,7 @@ class WaterControl(BaseDevice):
         }
         await self.location.smart_system.call_smart_system_service(self.valve_id, data)
 
-    async def stop_until_next_task(self):
+    async def stop_until_next_task(self) -> None:
         """Stop valve until next scheduled task."""
         data = {
             "id": str(uuid.uuid1()),
@@ -58,7 +58,7 @@ class WaterControl(BaseDevice):
         }
         await self.location.smart_system.call_smart_system_service(self.valve_id, data)
 
-    async def pause(self):
+    async def pause(self) -> None:
         """Pause the valve operation."""
         data = {
             "id": str(uuid.uuid1()),
@@ -67,7 +67,7 @@ class WaterControl(BaseDevice):
         }
         await self.location.smart_system.call_smart_system_service(self.valve_id, data)
 
-    async def unpause(self):
+    async def unpause(self) -> None:
         """Resume the valve operation."""
         data = {
             "id": str(uuid.uuid1()),

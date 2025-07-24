@@ -2,21 +2,21 @@ from .base_gardena_class import BaseGardenaClass
 
 
 class Location(BaseGardenaClass):
-    """Keep informations about gardena locations (gardens, ..) and devices"""
+    """Keep informations about gardena locations (gardens, ..) and devices."""
 
     id = "N/A"
     name = "N/A"
     devices = {}
 
-    def __init__(self, smart_system, location):
+    def __init__(self, smart_system, location) -> None:
         self.smart_system = smart_system
         self.update_location_data(location)
 
-    def update_location_data(self, location):
+    def update_location_data(self, location) -> None:
         self.id = location["id"]
         self.name = location["attributes"]["name"]
 
-    def add_device(self, device):
+    def add_device(self, device) -> None:
         self.devices[device.id] = device
 
     def find_device_by_type(self, device_type):

@@ -1,6 +1,6 @@
 class BaseGardenaClass:
-    """Base class for information retrieved by gardena"""
+    """Base class for information retrieved by gardena."""
 
-    def _update_field_if_exists(self, array, field_name, value):
+    def _update_field_if_exists(self, array, field_name, value) -> None:
         if value is not None:
             self.data[field_name] = value

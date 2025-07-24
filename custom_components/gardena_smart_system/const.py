@@ -26,3 +26,13 @@ ATTR_ERROR = "error"
 ATTR_STATE = "state"
 ATTR_STINT_START = "stint_start"
 ATTR_STINT_END = "stint_end"
+
+# Add constants for rate limiting
+HTTP_TOO_MANY_REQUESTS = 429
+HTTP_NOT_FOUND = 404
+HTTP_UNAUTHORIZED = 401
+HTTP_FORBIDDEN = 403
+
+# Default delays for rate limiting
+DEFAULT_API_DELAY = 1.0  # Minimum delay between API calls
+RATE_LIMIT_DELAY = 60  # Delay when rate limited

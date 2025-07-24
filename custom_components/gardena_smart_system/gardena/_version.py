@@ -29,8 +29,7 @@ def get_keywords() -> dict[str, str]:
     git_refnames = "$Format:%d$"
     git_full = "$Format:%H$"
     git_date = "$Format:%ci$"
-    keywords = {"refnames": git_refnames, "full": git_full, "date": git_date}
-    return keywords
+    return {"refnames": git_refnames, "full": git_full, "date": git_date}
 
 
 class VersioneerConfig:
@@ -100,10 +99,10 @@ def run_command(
 
     for command in commands:
         try:
-            dispcmd = str([command] + args)
+            str([command, *args])
             # remember shell=False, so use git.cmd on windows, not just git
             process = subprocess.Popen(
-                [command] + args,
+                [command, *args],
                 cwd=cwd,
                 env=env,
                 stdout=subprocess.PIPE,
@@ -115,18 +114,16 @@ def run_command(
             if e.errno == errno.ENOENT:
                 continue
             if verbose:
-                print("unable to run %s" % dispcmd)
-                print(e)
+                pass
             return None, None
     else:
         if verbose:
-            print("unable to find command, tried %s" % (commands,))
+            pass
         return None, None
     stdout = process.communicate()[0].strip().decode()
     if process.returncode != 0:
         if verbose:
-            print("unable to run %s (error)" % dispcmd)
-            print("stdout was %s" % stdout)
+            pass
         return None, process.returncode
     return stdout, process.returncode
 
@@ -159,11 +156,9 @@ def versions_from_parentdir(
         root = os.path.dirname(root)  # up a level
 
     if verbose:
-        print(
-            "Tried directories %s but none started with prefix %s"
-            % (str(rootdirs), parentdir_prefix)
-        )
-    raise NotThisMethod("rootdir doesn't start with parentdir_prefix")
+        pass
+    msg = "rootdir doesn't start with parentdir_prefix"
+    raise NotThisMethod(msg)
 
 
 @register_vcs_handler("git", "get_keywords")
@@ -202,7 +197,8 @@ def git_versions_from_keywords(
 ) -> dict[str, Any]:
     """Get version information from git keywords."""
     if "refnames" not in keywords:
-        raise NotThisMethod("Short version file found")
+        msg = "Short version file found"
+        raise NotThisMethod(msg)
     date = keywords.get("date")
     if date is not None:
         # Use only the last line.  Previous lines may contain GPG signature
@@ -219,8 +215,9 @@ def git_versions_from_keywords(
     refnames = keywords["refnames"].strip()
     if refnames.startswith("$Format"):
         if verbose:
-            print("keywords are unexpanded, not using")
-        raise NotThisMethod("unexpanded keywords, not a git-archive tarball")
+            pass
+        msg = "unexpanded keywords, not a git-archive tarball"
+        raise NotThisMethod(msg)
     refs = {r.strip() for r in refnames.strip("()").split(",")}
     # starting in git-1.8.3, tags are listed as "tag: foo-1.0" instead of
     # just "foo-1.0". If we see a "tag: " prefix, prefer those.
@@ -236,9 +233,9 @@ def git_versions_from_keywords(
         # "stabilization", as well as "HEAD" and "master".
         tags = {r for r in refs if re.search(r"\d", r)}
         if verbose:
-            print("discarding '%s', no digits" % ",".join(refs - tags))
+            pass
     if verbose:
-        print("likely tags: %s" % ",".join(sorted(tags)))
+        pass
     for ref in sorted(tags):
         # sorting will prefer e.g. "2.0" over "2.0rc1"
         if ref.startswith(tag_prefix):
@@ -249,7 +246,7 @@ def git_versions_from_keywords(
             if not re.match(r"\d", r):
                 continue
             if verbose:
-                print("picking %s" % r)
+                pass
             return {
                 "version": r,
                 "full-revisionid": keywords["full"].strip(),
@@ -259,7 +256,7 @@ def git_versions_from_keywords(
             }
     # no suitable tags, so version is "0+unknown", but full hex is still there
     if verbose:
-        print("no suitable tags, using unknown + full revision id")
+        pass
     return {
         "version": "0+unknown",
         "full-revisionid": keywords["full"].strip(),
@@ -294,8 +291,9 @@ def git_pieces_from_vcs(
     _, rc = runner(GITS, ["rev-parse", "--git-dir"], cwd=root, hide_stderr=not verbose)
     if rc != 0:
         if verbose:
-            print("Directory %s not under git control" % root)
-        raise NotThisMethod("'git rev-parse --git-dir' returned error")
+            pass
+        msg = "'git rev-parse --git-dir' returned error"
+        raise NotThisMethod(msg)
 
     # if there is a tag matching tag_prefix, this yields TAG-NUM-gHEX[-dirty]
     # if there isn't one, this yields HEX[-dirty] (no NUM)
@@ -314,11 +312,13 @@ def git_pieces_from_vcs(
     )
     # --long was added in git-1.5.5
     if describe_out is None:
-        raise NotThisMethod("'git describe' failed")
+        msg = "'git describe' failed"
+        raise NotThisMethod(msg)
     describe_out = describe_out.strip()
     full_out, rc = runner(GITS, ["rev-parse", "HEAD"], cwd=root)
     if full_out is None:
-        raise NotThisMethod("'git rev-parse' failed")
+        msg = "'git rev-parse' failed"
+        raise NotThisMethod(msg)
     full_out = full_out.strip()
 
     pieces: dict[str, Any] = {}
@@ -329,7 +329,8 @@ def git_pieces_from_vcs(
     branch_name, rc = runner(GITS, ["rev-parse", "--abbrev-ref", "HEAD"], cwd=root)
     # --abbrev-ref was added in git-1.6.3
     if rc != 0 or branch_name is None:
-        raise NotThisMethod("'git rev-parse --abbrev-ref' returned error")
+        msg = "'git rev-parse --abbrev-ref' returned error"
+        raise NotThisMethod(msg)
     branch_name = branch_name.strip()
 
     if branch_name == "HEAD":
@@ -339,7 +340,8 @@ def git_pieces_from_vcs(
         branches, rc = runner(GITS, ["branch", "--contains"], cwd=root)
         # --contains was added in git-1.5.4
         if rc != 0 or branches is None:
-            raise NotThisMethod("'git branch --contains' returned error")
+            msg = "'git branch --contains' returned error"
+            raise NotThisMethod(msg)
         branches = branches.split("\n")
 
         # Remove the first line if we're running detached
@@ -375,18 +377,16 @@ def git_pieces_from_vcs(
         mo = re.search(r"^(.+)-(\d+)-g([0-9a-f]+)$", git_describe)
         if not mo:
             # unparsable. Maybe git-describe is misbehaving?
-            pieces["error"] = "unable to parse git-describe output: '%s'" % describe_out
+            pieces["error"] = f"unable to parse git-describe output: '{describe_out}'"
             return pieces
 
         # tag
         full_tag = mo.group(1)
         if not full_tag.startswith(tag_prefix):
             if verbose:
-                fmt = "tag '%s' doesn't start with prefix '%s'"
-                print(fmt % (full_tag, tag_prefix))
-            pieces["error"] = "tag '%s' doesn't start with prefix '%s'" % (
-                full_tag,
-                tag_prefix,
+                pass
+            pieces["error"] = (
+                f"tag '{full_tag}' doesn't start with prefix '{tag_prefix}'"
             )
             return pieces
         pieces["closest-tag"] = full_tag[len(tag_prefix) :]
@@ -529,13 +529,13 @@ def render_pep440_post(pieces: dict[str, Any]) -> str:
             if pieces["dirty"]:
                 rendered += ".dev0"
             rendered += plus_or_dot(pieces)
-            rendered += "g%s" % pieces["short"]
+            rendered += "g{}".format(pieces["short"])
     else:
         # exception #1
         rendered = "0.post%d" % pieces["distance"]
         if pieces["dirty"]:
             rendered += ".dev0"
-        rendered += "+g%s" % pieces["short"]
+        rendered += "+g{}".format(pieces["short"])
     return rendered
 
 
@@ -555,7 +555,7 @@ def render_pep440_post_branch(pieces: dict[str, Any]) -> str:
             if pieces["branch"] != "master":
                 rendered += ".dev0"
             rendered += plus_or_dot(pieces)
-            rendered += "g%s" % pieces["short"]
+            rendered += "g{}".format(pieces["short"])
             if pieces["dirty"]:
                 rendered += ".dirty"
     else:
@@ -563,7 +563,7 @@ def render_pep440_post_branch(pieces: dict[str, Any]) -> str:
         rendered = "0.post%d" % pieces["distance"]
         if pieces["branch"] != "master":
             rendered += ".dev0"
-        rendered += "+g%s" % pieces["short"]
+        rendered += "+g{}".format(pieces["short"])
         if pieces["dirty"]:
             rendered += ".dirty"
     return rendered
@@ -665,7 +665,8 @@ def render(pieces: dict[str, Any], style: str) -> dict[str, Any]:
     elif style == "git-describe-long":
         rendered = render_git_describe_long(pieces)
     else:
-        raise ValueError("unknown style '%s'" % style)
+        msg = f"unknown style '{style}'"
+        raise ValueError(msg)
 
     return {
         "version": rendered,

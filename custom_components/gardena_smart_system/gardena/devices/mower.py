@@ -8,7 +8,7 @@ from .base_device import BaseDevice
 class Mower(BaseDevice):
     """Mower device for smart lawn cutting operations."""
 
-    def __init__(self, location, device_map):
+    def __init__(self, location, device_map) -> None:
         """Initialize the mower device."""
         BaseDevice.__init__(self, location, device_map["COMMON"][0]["id"])
         self.type = "MOWER"
@@ -25,7 +25,7 @@ class Mower(BaseDevice):
 
         self.setup_values_from_device_map(device_map)
 
-    def update_device_specific_data(self, device_map):
+    def update_device_specific_data(self, device_map) -> None:
         """Update mower specific data."""
         # Mower has only one item
         if device_map["type"] == "MOWER":
@@ -38,7 +38,7 @@ class Mower(BaseDevice):
             # Duration attributes for mowing operations
             self.set_duration_attributes("mowing", device_map, "mowingDuration")
 
-    async def start_seconds_to_override(self, duration):
+    async def start_seconds_to_override(self, duration) -> None:
         """Start mowing override operation for specified duration in seconds."""
         if self.mower_id is not None:
             data = {
@@ -55,7 +55,7 @@ class Mower(BaseDevice):
         else:
             self.location.smart_system.logger.error("The mower id is not defined")
 
-    async def start_dont_override(self):
+    async def start_dont_override(self) -> None:
         """Start mowing without overriding the schedule."""
         if self.mower_id is not None:
             data = {
@@ -69,7 +69,7 @@ class Mower(BaseDevice):
         else:
             self.location.smart_system.logger.error("The mower id is not defined")
 
-    async def park_until_next_task(self):
+    async def park_until_next_task(self) -> None:
         """Park mower until next scheduled task."""
         if self.mower_id is not None:
             data = {
@@ -83,7 +83,7 @@ class Mower(BaseDevice):
         else:
             self.location.smart_system.logger.error("The mower id is not defined")
 
-    async def park_until_further_notice(self):
+    async def park_until_further_notice(self) -> None:
         """Park mower until manually restarted."""
         if self.mower_id is not None:
             data = {

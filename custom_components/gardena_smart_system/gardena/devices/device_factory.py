@@ -21,3 +21,4 @@ class DeviceFactory:
             if len(device_map["VALVE"]) > 1:
                 return SmartIrrigationControl(location, device_map)
             return WaterControl(location, device_map)
+        return None

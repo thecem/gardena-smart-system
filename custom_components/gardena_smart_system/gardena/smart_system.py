@@ -1,5 +1,4 @@
 import asyncio
-import functools
 import json
 import logging
 import ssl
@@ -23,30 +22,24 @@ DEFAULT_TIMEOUT = 30.0  # 30 seconds default timeout
 CONNECTION_TIMEOUT = 15.0  # 15 seconds for connection
 READ_TIMEOUT = 30.0  # 30 seconds for reading response
 
+# Create SSL context at module level to avoid blocking event loop
+_SSL_CONTEXT = ssl.create_default_context()
+
 
 class RateLimitException(Exception):
     """Exception raised when API rate limit is reached."""
 
 
-
-@functools.lru_cache(maxsize=1)
-def get_ssl_context():
-    """Create and cache SSL context outside of event loop."""
-    context = ssl.create_default_context()
-    return context
-
-
 class SmartSystem:
-    """Base class to communicate with gardena and handle network calls"""
+    """Base class to communicate with gardena and handle network calls."""
 
     def __init__(
         self, client_id=None, client_secret=None, level=logging.INFO, ssl_context=None
-    ):
-        """Constructor, create instance of gateway"""
+    ) -> None:
+        """Constructor, create instance of gateway."""
         if client_id is None or client_secret is None:
-            raise ValueError(
-                "Arguments 'email', 'client_secret' and 'client_id' are required"
-            )
+            msg = "Arguments 'email', 'client_secret' and 'client_id' are required"
+            raise ValueError(msg)
         logging.basicConfig(
             level=level,
             format="%(asctime)s %(levelname)-8s %(message)s",
@@ -75,28 +68,29 @@ class SmartSystem:
             "POWER_SOCKET",
             "DEVICE",
         ]
-        # Use provided SSL context or get cached one
-        self._ssl_context = ssl_context or get_ssl_context()
+        # Use provided SSL context or use module-level SSL context
+        self._ssl_context = ssl_context or _SSL_CONTEXT
 
         # Rate limiting and backoff settings
         self.connection_attempts = 0
         self.max_backoff = MAX_BACKOFF_VALUE
         self.base_delay = 5
 
-    def create_header(self, include_json=False):
+    def create_header(self, include_json=False, with_auth=False):
         headers = {"Authorization-Provider": "husqvarna", "X-Api-Key": self.client_id}
         if include_json:
             headers["Content-Type"] = "application/vnd.api+json"
+        if with_auth and self.token_manager.access_token:
+            headers["Authorization"] = "Bearer " + self.token_manager.access_token
         return headers
 
-    async def authenticate(self):
+    async def authenticate(self) -> None:
         """
         Authenticate and get tokens.
 
         This function needs to be called first.
         """
         url = self.AUTHENTICATION_HOST + "/v1/oauth2/token"
-        extra = {"client_id": self.client_id}
 
         # Create timeout configuration using httpx.Timeout
         timeout_config = httpx.Timeout(
@@ -122,33 +116,42 @@ class SmartSystem:
             self.token_manager.load_from_oauth2_token(token)
             self.logger.debug("Authentication successful, updating locations...")
         except (ConnectTimeout, ConnectError, TimeoutException) as ex:
-            self.logger.error("Connection timeout during authentication: %s", ex)
-            raise ConnectionError(
-                f"Authentication failed due to connection timeout: {ex}"
-            ) from ex
+            self.logger.exception("Connection timeout during authentication")
+            msg = f"Authentication failed due to connection timeout: {ex}"
+            raise ConnectionError(msg) from ex
+        except OAuthError as ex:
+            # Handle OAuth-specific errors more precisely
+            error_description = str(ex)
+            if "simultaneous logins detected" in error_description.lower():
+                self.logger.warning(
+                    "Simultaneous login detected. Only one Gardena client can be active at a time."
+                )
+                # Create a more specific exception for better handling upstream
+                msg = f"Simultaneous login error: {ex}"
+                raise AuthenticationException(msg) from ex
+            self.logger.exception("OAuth authentication failed")
+            msg = f"OAuth error: {ex}"
+            raise AuthenticationException(msg) from ex
         except Exception as ex:
-            self.logger.error("Authentication failed: %s", ex)
+            self.logger.exception("Authentication failed: %s", ex)
             raise
 
-    async def quit(self):
+    async def quit(self) -> None:
         self.should_stop = True
-        if self.client:
-            if self.token_manager.access_token:
-                await self.client.post(
-                    f"{self.AUTHENTICATION_HOST}/v1/oauth2/revoke",
-                    headers={
-                        "Authorization": "Bearer " + self.token_manager.access_token
-                    },
-                    data={"token": self.token_manager.access_token},
-                )
+        if self.client and self.token_manager.access_token:
+            await self.client.post(
+                f"{self.AUTHENTICATION_HOST}/v1/oauth2/revoke",
+                headers={"Authorization": "Bearer " + self.token_manager.access_token},
+                data={"token": self.token_manager.access_token},
+            )
 
-    async def token_saver(self, token, refresh_token=None, access_token=None):
+    async def token_saver(self, token, refresh_token=None, access_token=None) -> None:
         self.token_manager.load_from_oauth2_token(token)
 
-    async def call_smart_system_service(self, service_id, data):
+    async def call_smart_system_service(self, service_id, data) -> None:
         """Call Gardena Smart System service with improved error handling."""
         args = {"data": data}
-        headers = self.create_header(True)
+        headers = self.create_header(with_auth=True)
 
         try:
             self.logger.debug("Calling service %s with data: %s", service_id, data)
@@ -163,19 +166,18 @@ class SmartSystem:
                 self.logger.error("Service call failed: %s", error_msg)
                 raise ConnectionError(error_msg)
         except (ConnectTimeout, ConnectError, TimeoutException) as ex:
-            self.logger.error(
+            self.logger.exception(
                 "Connection timeout during service call to %s: %s", service_id, ex
             )
-            raise ConnectionError(
-                f"Service call failed due to connection timeout: {ex}"
-            ) from ex
+            msg = f"Service call failed due to connection timeout: {ex}"
+            raise ConnectionError(msg) from ex
         except Exception as ex:
-            self.logger.error(
+            self.logger.exception(
                 "Unexpected error during service call to %s: %s", service_id, ex
             )
             raise
 
-    def __response_has_errors(self, response):
+    def __response_has_errors(self, response) -> bool:
         if response.status_code not in (200, 202):
             try:
                 r = response.json()
@@ -214,17 +216,18 @@ class SmartSystem:
                 return None
             return json.loads(response.content.decode("utf-8"))
         except (ConnectTimeout, ConnectError, TimeoutException) as ex:
-            self.logger.error(
+            self.logger.exception(
                 "Connection timeout during GET request to %s: %s", url, ex
             )
-            raise ConnectionError(
-                f"GET request failed due to connection timeout: {ex}"
-            ) from ex
+            msg = f"GET request failed due to connection timeout: {ex}"
+            raise ConnectionError(msg) from ex
         except Exception as ex:
-            self.logger.error("Unexpected error during GET request to %s: %s", url, ex)
+            self.logger.exception(
+                "Unexpected error during GET request to %s: %s", url, ex
+            )
             raise
 
-    async def update_locations(self):
+    async def update_locations(self) -> None:
         """Update locations from Gardena API with improved error handling."""
         try:
             self.logger.debug("Fetching locations from Gardena API...")
@@ -235,9 +238,8 @@ class SmartSystem:
                 if "data" not in response_data or len(response_data["data"]) < 1:
                     self.logger.error("No locations found in API response")
                     self.logger.error("Response data: %s", response_data)
-                    raise ConnectionError(
-                        "No locations found - check if your account has registered devices"
-                    )
+                    msg = "No locations found - check if your account has registered devices"
+                    raise ConnectionError(msg)
                 self.locations = {}
                 for location in response_data["data"]:
                     new_location = Location(self, location)
@@ -248,15 +250,17 @@ class SmartSystem:
                 )
             else:
                 self.logger.error("Empty response when fetching locations")
-                raise ConnectionError("Empty response from locations endpoint")
+                msg = "Empty response from locations endpoint"
+                raise ConnectionError(msg)
         except ConnectionError:
             # Re-raise connection errors as-is
             raise
         except Exception as ex:
-            self.logger.error("Unexpected error fetching locations: %s", ex)
-            raise ConnectionError(f"Failed to fetch locations: {ex}") from ex
+            self.logger.exception("Unexpected error fetching locations: %s", ex)
+            msg = f"Failed to fetch locations: {ex}"
+            raise ConnectionError(msg) from ex
 
-    async def update_devices(self, location):
+    async def update_devices(self, location) -> None:
         response_data = await self.__call_smart_system_get(
             f"{self.SMART_HOST}/v2/locations/{location.id}"
         )
@@ -282,7 +286,7 @@ class SmartSystem:
                     if device_obj is not None:
                         location.add_device(device_obj)
 
-    async def start_ws(self, location):
+    async def start_ws(self, location) -> None:
         """Start WebSocket connection with improved robustness."""
         connection_attempts = 0
         max_consecutive_failures = 5
@@ -315,7 +319,7 @@ class SmartSystem:
 
                 # If too many consecutive failures, increase the delay
                 if connection_attempts >= max_consecutive_failures:
-                    self.logger.error(
+                    self.logger.exception(
                         f"Too many consecutive WebSocket failures ({connection_attempts}), extending delay"
                     )
                     delay = min(
@@ -340,7 +344,7 @@ class SmartSystem:
                     # Do NOT count as error, do NOT log as unexpected, just break
                     break
                 connection_attempts += 1
-                self.logger.error(
+                self.logger.exception(
                     f"Unexpected WebSocket error (attempt {connection_attempts}): {type(error).__name__}: {error}"
                 )
                 delay = min(30, 5 + connection_attempts * 2)
@@ -386,7 +390,7 @@ class SmartSystem:
         """Calculate exponential backoff delay for reconnection attempts."""
         return min(self.max_backoff, self.base_delay * (2**self.connection_attempts))
 
-    async def _wait_with_cancel(self, delay):
+    async def _wait_with_cancel(self, delay) -> None:
         """Wait for specified delay while allowing for cancellation."""
         for _ in range(int(delay)):
             if self.should_stop:
@@ -410,16 +414,15 @@ class SmartSystem:
         self.logger.debug("Trying to get Websocket url")
         r = await self.client.post(
             f"{self.SMART_HOST}/v2/websocket",
-            headers=self.create_header(True),
+            headers=self.create_header(with_auth=True),
             data=json.dumps(args, ensure_ascii=False),
         )
         self.logger.debug("Websocket url: got response")
 
         # Check for rate limiting
         if r.status_code == 429:
-            raise RateLimitException(
-                "API rate limit reached when retrieving WebSocket URL"
-            )
+            msg = "API rate limit reached when retrieving WebSocket URL"
+            raise RateLimitException(msg)
 
         r.raise_for_status()
         response = r.json()
@@ -512,11 +515,11 @@ class SmartSystem:
                     "WebSocket AttributeError handled in message loop, connection likely closed"
                 )
             else:
-                self.logger.error(
+                self.logger.exception(
                     "Unexpected AttributeError in WebSocket loop: %s", attr_err
                 )
         except Exception as ex:
-            self.logger.error(
+            self.logger.exception(
                 "Error in WebSocket message loop: %s: %s", type(ex).__name__, ex
             )
             raise
@@ -544,7 +547,7 @@ class SmartSystem:
 
         return websocket
 
-    def on_message(self, message):
+    def on_message(self, message) -> None:
         data = json.loads(message)
         self.logger.debug("Received %s message", data["type"])
         self.logger.debug("------- Beginning of message ---------")
@@ -559,22 +562,22 @@ class SmartSystem:
             self.logger.debug(">>>>>>>>>>>>> Unkonwn Message")
         self.logger.debug("------- End of message ---------")
 
-    def parse_location(self, location):
+    def parse_location(self, location) -> None:
         if location["id"] not in self.locations:
             self.logger.debug("Location not found : %s", location["attributes"]["name"])
         self.locations[location["id"]].update_location_data(location)
 
-    def parse_device(self, device):
+    def parse_device(self, device) -> None:
         device_id = device["id"].split(":")[0]
         for location in self.locations.values():
             if device_id in location.devices:
                 location.devices[device_id].update_data(device)
                 break
 
-    def add_ws_status_callback(self, callback):
+    def add_ws_status_callback(self, callback) -> None:
         self.ws_status_callback = callback
 
-    def set_ws_status(self, status):
+    def set_ws_status(self, status) -> None:
         self.is_ws_connected = status
         if self.ws_status_callback:
             self.ws_status_callback(status)

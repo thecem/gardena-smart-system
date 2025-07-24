@@ -1,18 +1,14 @@
-"""Config flow for Gardena integration."""
+"""Configuration flow for Gardena Smart System."""
 
+import asyncio
 import logging
 from collections import OrderedDict
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from gardena.smart_system import SmartSystem
 from homeassistant import config_entries
-from homeassistant.const import (
-    CONF_CLIENT_ID,
-    CONF_CLIENT_SECRET,
-    CONF_ID,
-)
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
     CONF_MOWER_DURATION,
@@ -26,6 +22,14 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Configuration schema
+CONFIG_SCHEMA = vol.Schema(
+    {
+        vol.Required("application_key"): str,
+        vol.Required("application_secret"): str,
+    }
+)
+
 DEFAULT_OPTIONS = {
     CONF_MOWER_DURATION: DEFAULT_MOWER_DURATION,
     CONF_SMART_IRRIGATION_DURATION: DEFAULT_SMART_IRRIGATION_DURATION,
@@ -33,52 +37,107 @@ DEFAULT_OPTIONS = {
 }
 
 
-class GardenaSmartSystemConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Gardena."""
+class GardenaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Gardena Smart System."""
 
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_PUSH
 
     async def _show_setup_form(self, errors=None):
         """Show the setup form to the user."""
-        errors = {}
+        errors = errors or {}
 
         fields = OrderedDict()
-        fields[vol.Required(CONF_CLIENT_ID)] = str
-        fields[vol.Required(CONF_CLIENT_SECRET)] = str
+        fields[vol.Required("application_key")] = str
+        fields[vol.Required("application_secret")] = str
 
         return self.async_show_form(
             step_id="user", data_schema=vol.Schema(fields), errors=errors
         )
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input=None) -> FlowResult:
         """Handle the initial step."""
-        if user_input is None:
-            return await self._show_setup_form()
-
         errors = {}
-        try:
-            await try_connection(
-                user_input[CONF_CLIENT_ID], user_input[CONF_CLIENT_SECRET]
-            )
-        except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Unexpected exception")
-            errors["base"] = "unknown"
-            return await self._show_setup_form(errors)
 
-        unique_id = user_input[CONF_CLIENT_ID]
+        if user_input is not None:
+            try:
+                # Validate the configuration
+                await self._test_credentials(user_input)
+                return self.async_create_entry(
+                    title="Gardena Smart System",
+                    data=user_input,
+                )
+            except Exception as ex:
+                _LOGGER.exception("Failed to validate credentials")
+                error_msg = str(ex).lower()
 
-        await self.async_set_unique_id(unique_id)
-        self._abort_if_unique_id_configured()
+                if "invalid_client" in error_msg or "client not found" in error_msg:
+                    errors["application_key"] = "invalid_application_key"
+                elif "invalid_grant" in error_msg:
+                    errors["application_secret"] = "invalid_application_secret"
+                elif "access_denied" in error_msg:
+                    errors["base"] = "access_denied"
+                elif "timeout" in error_msg:
+                    errors["base"] = "timeout"
+                elif "simultaneous logins detected" in error_msg:
+                    errors["base"] = "simultaneous_logins"
+                elif "invalid_request" in error_msg:
+                    errors["base"] = "invalid_request"
+                else:
+                    errors["base"] = "auth"
 
-        return self.async_create_entry(
-            title="",
-            data={
-                CONF_ID: unique_id,
-                CONF_CLIENT_ID: user_input[CONF_CLIENT_ID],
-                CONF_CLIENT_SECRET: user_input[CONF_CLIENT_SECRET],
+        return self.async_show_form(
+            step_id="user",
+            data_schema=CONFIG_SCHEMA,
+            errors=errors,
+            description_placeholders={
+                "docs_url": "https://developer.husqvarnagroup.cloud/",
             },
         )
+
+    async def _test_credentials(self, config: dict) -> bool:
+        """Test if credentials are valid with retry logic for simultaneous logins."""
+        from .gardena.smart_system import SmartSystem
+
+        smart_system = SmartSystem(
+            client_id=config["application_key"],
+            client_secret=config["application_secret"],
+        )
+
+        # Try multiple times with increasing delays for simultaneous login errors
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # For retry attempts, completely reset the authentication state
+                if attempt > 0:
+                    await smart_system.quit()  # Clean up any existing state
+
+                await smart_system.authenticate()
+                await smart_system.quit()
+                return True
+            except Exception as ex:
+                error_msg = str(ex).lower()
+
+                # If it's a simultaneous login error, wait and retry
+                if (
+                    "simultaneous logins detected" in error_msg
+                    and attempt < max_retries - 1
+                ):
+                    _LOGGER.warning(
+                        "Simultaneous login detected, waiting %d seconds before retry %d/%d",
+                        (attempt + 1) * 10,
+                        attempt + 2,
+                        max_retries,
+                    )
+                    await asyncio.sleep((attempt + 1) * 10)  # Wait 10, 20, 30 seconds
+                    continue
+
+                # For other errors or final retry, re-raise
+                _LOGGER.exception("Authentication test failed")
+                raise
+
+        # Should never reach here due to exception re-raising
+        return False
 
     @staticmethod
     @callback
@@ -87,7 +146,7 @@ class GardenaSmartSystemConfigFlowHandler(config_entries.ConfigFlow, domain=DOMA
 
 
 class GardenaSmartSystemOptionsFlowHandler(config_entries.OptionsFlow):
-    def __init__(self, config_entry):
+    def __init__(self, config_entry) -> None:
         """Initialize Gardena Smart System options flow."""
         super().__init__()
 
@@ -133,79 +192,46 @@ class GardenaSmartSystemOptionsFlowHandler(config_entries.OptionsFlow):
         )
 
 
-async def try_connection(client_id, client_secret):
+async def try_connection(client_id, client_secret) -> None:
     _LOGGER.debug("Trying to connect to Gardena during setup")
+    # Import here to avoid circular imports at module level
+    from .gardena.exceptions.authentication_exception import AuthenticationException
+    from .gardena.smart_system import SmartSystem
+
     smart_system = SmartSystem(client_id=client_id, client_secret=client_secret)
-    await smart_system.authenticate()
-    await smart_system.update_locations()
-    await smart_system.quit()
-    _LOGGER.debug("Successfully connected to Gardena during setup")
-
-
-"""Config flow for Gardena Smart System integration."""
-
-import logging
-import sys
-from pathlib import Path
-
-from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResult
-
-# Ensure gardena module can be imported
-current_dir = Path(__file__).parent
-if str(current_dir) not in sys.path:
-    sys.path.insert(0, str(current_dir))
-
-# Import gardena modules
-from gardena.exceptions.authentication_exception import AuthenticationException
-
-from .const import DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
-
-DATA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONF_CLIENT_ID): str,
-        vol.Required(CONF_CLIENT_SECRET): str,
-    }
-)
-
-
-class GardenaSmartSystemConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Gardena Smart System."""
-
-    VERSION = 1
-
-    async def async_step_user(self, user_input=None) -> FlowResult:
-        """Handle the initial step."""
-        errors = {}
-
-        if user_input is not None:
-            try:
-                # Test the connection
-                await self._test_connection(
-                    user_input[CONF_CLIENT_ID], user_input[CONF_CLIENT_SECRET]
-                )
-
-                # Create the config entry
-                return self.async_create_entry(
-                    title="Gardena Smart System",
-                    data=user_input,
-                )
-            except AuthenticationException:
-                errors["base"] = "invalid_auth"
-            except Exception:
-                errors["base"] = "cannot_connect"
-
-        return self.async_show_form(
-            step_id="user",
-            data_schema=DATA_SCHEMA,
-            errors=errors,
-        )
-
-    async def _test_connection(self, client_id: str, client_secret: str) -> None:
-        """Test if we can connect to the Gardena Smart System."""
-        smart_system = SmartSystem(client_id=client_id, client_secret=client_secret)
+    try:
         await smart_system.authenticate()
         await smart_system.update_locations()
         await smart_system.quit()
+        _LOGGER.debug("Successfully connected to Gardena during setup")
+    except AuthenticationException as auth_ex:
+        _LOGGER.exception("Authentication failed during setup: %s", auth_ex)
+        raise
+    except Exception as ex:
+        error_msg = str(ex).lower()
+        _LOGGER.exception("Connection test failed: %s", ex)
+
+        # Handle specific error types
+        if "rate limit" in error_msg or "429" in error_msg:
+            msg = "Rate limit exceeded. Please wait and try again."
+            raise ConnectionError(msg) from ex
+        if "simultaneous logins" in error_msg:
+            msg = "Multiple logins detected. Close other Gardena apps and try again."
+            raise ConnectionError(msg) from ex
+        if (
+            "403" in error_msg
+            or "forbidden" in error_msg
+            or "not authorized" in error_msg
+        ):
+            msg = "Access forbidden. Check your API application configuration."
+            raise ConnectionError(msg) from ex
+        if "invalid_client" in error_msg or "client secret is invalid" in error_msg:
+            msg = "Invalid Client ID or Client Secret"
+            raise AuthenticationException(msg) from ex
+        if "timeout" in error_msg:
+            msg = "Connection timeout. Check your internet connection."
+            raise ConnectionError(msg) from ex
+
+        # Re-raise as ConnectionError for generic issues
+        msg = f"Failed to connect to Gardena API: {ex}"
+        raise ConnectionError(msg) from ex

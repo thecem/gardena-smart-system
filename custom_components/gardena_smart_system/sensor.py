@@ -31,14 +31,12 @@ SOIL_SENSOR_TYPES = {
 }
 
 SENSOR_TYPES = {
-
-        "ambient_temperature": [
-            UnitOfTemperature.CELSIUS,
-            "mdi:thermometer",
-            SensorDeviceClass.TEMPERATURE,
-        ],
-        "light_intensity": ["lx", None, SensorDeviceClass.ILLUMINANCE]
-    ,
+    "ambient_temperature": [
+        UnitOfTemperature.CELSIUS,
+        "mdi:thermometer",
+        SensorDeviceClass.TEMPERATURE,
+    ],
+    "light_intensity": ["lx", None, SensorDeviceClass.ILLUMINANCE],
     **SOIL_SENSOR_TYPES,
 }
 
@@ -65,7 +63,7 @@ DURATION_SENSOR_TYPES = {
 }
 
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
+async def async_setup_entry(hass, config_entry, async_add_entities) -> None:
     """Perform the setup for Gardena sensor devices."""
     entities = []
 
@@ -127,20 +125,20 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         )
 
     _LOGGER.debug("Adding sensor as sensor %s", entities)
-    async_add_entities(entities, True)
+    async_add_entities(entities, update_before_add=True)
 
 
 class GardenaDurationSensor(Entity):
     """Representation of a Gardena Duration Sensor for timed operations."""
 
-    def __init__(self, device, sensor_type):
+    def __init__(self, device, sensor_type) -> None:
         """Initialize the Gardena Duration Sensor."""
         self._sensor_type = sensor_type
         self._name = f"{device.name} {sensor_type.replace('_', ' ')}"
         self._unique_id = f"{device.serial}-{sensor_type}"
         self._device = device
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Subscribe to sensor events."""
         self._device.add_callback(self.update_callback)
 
@@ -149,9 +147,9 @@ class GardenaDurationSensor(Entity):
         """No polling needed for a sensor."""
         return False
 
-    def update_callback(self, device):
+    def update_callback(self, device) -> None:
         """Call update for Home Assistant when the device is updated."""
-        self.schedule_update_ha_state(True)
+        self.schedule_update_ha_state(force_refresh=True)
 
     @property
     def name(self):
@@ -224,14 +222,14 @@ class GardenaDurationSensor(Entity):
 class GardenaSensor(Entity):
     """Representation of a Gardena Sensor."""
 
-    def __init__(self, device, sensor_type):
+    def __init__(self, device, sensor_type) -> None:
         """Initialize the Gardena Sensor."""
         self._sensor_type = sensor_type
         self._name = f"{device.name} {sensor_type.replace('_', ' ')}"
         self._unique_id = f"{device.serial}-{sensor_type}"
         self._device = device
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Subscribe to sensor events."""
         self._device.add_callback(self.update_callback)
 
@@ -240,9 +238,9 @@ class GardenaSensor(Entity):
         """No polling needed for a sensor."""
         return False
 
-    def update_callback(self, device):
+    def update_callback(self, device) -> None:
         """Call update for Home Assistant when the device is updated."""
-        self.schedule_update_ha_state(True)
+        self.schedule_update_ha_state(force_refresh=True)
 
     @property
     def name(self):

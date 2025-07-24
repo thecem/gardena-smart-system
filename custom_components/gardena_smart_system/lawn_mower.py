@@ -43,7 +43,7 @@ SUPPORT_GARDENA = (
 )
 
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
+async def async_setup_entry(hass, config_entry, async_add_entities) -> None:
     """Set up the Gardena smart mower system."""
     entities = []
     for mower in hass.data[DOMAIN][GARDENA_LOCATION].find_device_by_type("MOWER"):
@@ -52,7 +52,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         )
 
     _LOGGER.debug("Adding mower as lawn_mower: %s", entities)
-    async_add_entities(entities, True)
+    async_add_entities(entities, update_before_add=True)
 
     platform = entity_platform.async_get_current_platform()
     platform.async_register_entity_service(
@@ -65,7 +65,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 class GardenaSmartMowerLawnMowerEntity(LawnMowerEntity):
     """Representation of a Gardena Connected Mower."""
 
-    def __init__(self, hass, mower, options):
+    def __init__(self, hass, mower, options) -> None:
         """Initialize the Gardena Connected Mower."""
         self.hass = hass
         self._device = mower
@@ -77,7 +77,7 @@ class GardenaSmartMowerLawnMowerEntity(LawnMowerEntity):
         self._stint_start = None
         self._stint_end = None
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Subscribe to events."""
         self._device.add_callback(self.update_callback)
 
@@ -91,11 +91,11 @@ class GardenaSmartMowerLawnMowerEntity(LawnMowerEntity):
         """Return the state of the mower."""
         return self._activity
 
-    def update_callback(self, device):
+    def update_callback(self, device) -> None:
         """Call update for Home Assistant when the device is updated."""
-        self.schedule_update_ha_state(True)
+        self.schedule_update_ha_state(force_refresh=True)
 
-    async def async_update(self):
+    async def async_update(self) -> None:
         """Update the states of Gardena devices."""
         _LOGGER.debug("Running Gardena update")
         # Managing state
@@ -274,13 +274,13 @@ async def async_setup_entry(
         entities.append(GardenaMower(mower, entry.options))
 
     _LOGGER.debug("Adding %d lawn mower entities", len(entities))
-    async_add_entities(entities, True)
+    async_add_entities(entities, update_before_add=True)
 
 
 class GardenaMower(LawnMowerEntity):
     """Representation of a Gardena Smart System mower."""
 
-    def __init__(self, mower, options):
+    def __init__(self, mower, options) -> None:
         """Initialize the Gardena mower."""
         self._device = mower
         self._options = options
@@ -292,7 +292,7 @@ class GardenaMower(LawnMowerEntity):
             | LawnMowerEntityFeature.START_MOWING
         )
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         """Subscribe to mower events."""
         self._device.add_callback(self.update_callback)
 
@@ -301,9 +301,9 @@ class GardenaMower(LawnMowerEntity):
         """No polling needed for mower."""
         return False
 
-    def update_callback(self, device):
+    def update_callback(self, device) -> None:
         """Call update for Home Assistant when the device is updated."""
-        self.schedule_update_ha_state(True)
+        self.schedule_update_ha_state(force_refresh=True)
 
     @property
     def name(self):

@@ -1,4 +1,3 @@
-
 """Gardena Smart System API package."""
 
 from ._version import get_versions

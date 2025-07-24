@@ -4,7 +4,7 @@ from .base_device import BaseDevice
 
 
 class SmartIrrigationControl(BaseDevice):
-    def __init__(self, location, device_map):
+    def __init__(self, location, device_map) -> None:
         """Constructor for the smart irrigation control device."""
         BaseDevice.__init__(self, location, device_map["COMMON"][0]["id"])
         self.type = "SMART_IRRIGATION_CONTROL"
@@ -25,7 +25,7 @@ class SmartIrrigationControl(BaseDevice):
 
     def _set_valves_map_value(
         self, target_map, source_map, value_name_in_source, value_name_in_target=None
-    ):
+    ) -> None:
         if not value_name_in_target:
             value_name_in_target = value_name_in_source
         if value_name_in_source in source_map:
@@ -33,7 +33,7 @@ class SmartIrrigationControl(BaseDevice):
         else:
             target_map[value_name_in_target] = "N/A"
 
-    def update_device_specific_data(self, device_map):
+    def update_device_specific_data(self, device_map) -> None:
         if device_map["type"] == "VALVE_SET":
             # SmartIrrigationControl has only one item
             self.valve_set_id = device_map["id"]
@@ -127,7 +127,7 @@ class SmartIrrigationControl(BaseDevice):
 
                             try:
                                 start_time = datetime.datetime.fromisoformat(
-                                    start_timestamp.replace("Z", "+00:00")
+                                    start_timestamp
                                 )
                                 current_time = datetime.datetime.now(datetime.UTC)
                                 elapsed_seconds = int(
@@ -273,7 +273,7 @@ class SmartIrrigationControl(BaseDevice):
                     if valve_info["timestamp"] != "N/A":
                         try:
                             start_time = datetime.datetime.fromisoformat(
-                                valve_info["timestamp"].replace("Z", "+00:00")
+                                valve_info["timestamp"]
                             )
                             end_time = datetime.datetime.now(datetime.UTC)
                             duration_seconds = int(
@@ -303,7 +303,7 @@ class SmartIrrigationControl(BaseDevice):
                     if valve_info["timestamp"] != "N/A":
                         try:
                             start_time = datetime.datetime.fromisoformat(
-                                valve_info["timestamp"].replace("Z", "+00:00")
+                                valve_info["timestamp"]
                             )
                             current_time = datetime.datetime.now(datetime.UTC)
                             elapsed_seconds = int(
@@ -331,7 +331,7 @@ class SmartIrrigationControl(BaseDevice):
                     self.valve_duration_timestamp = "N/A"
                     self.valve_remaining_time = 0
 
-    async def start_seconds_to_override(self, duration, valve_id):
+    async def start_seconds_to_override(self, duration, valve_id) -> None:
         data = {
             "id": str(uuid.uuid1()),
             "type": "VALVE_CONTROL",
@@ -339,7 +339,7 @@ class SmartIrrigationControl(BaseDevice):
         }
         await self.location.smart_system.call_smart_system_service(valve_id, data)
 
-    async def stop_until_next_task(self, valve_id):
+    async def stop_until_next_task(self, valve_id) -> None:
         data = {
             "id": str(uuid.uuid1()),
             "type": "VALVE_CONTROL",
@@ -347,7 +347,7 @@ class SmartIrrigationControl(BaseDevice):
         }
         await self.location.smart_system.call_smart_system_service(valve_id, data)
 
-    async def pause(self, valve_id):
+    async def pause(self, valve_id) -> None:
         data = {
             "id": str(uuid.uuid1()),
             "type": "VALVE_CONTROL",
@@ -355,7 +355,7 @@ class SmartIrrigationControl(BaseDevice):
         }
         await self.location.smart_system.call_smart_system_service(valve_id, data)
 
-    async def unpause(self, valve_id):
+    async def unpause(self, valve_id) -> None:
         data = {
             "id": str(uuid.uuid1()),
             "type": "VALVE_CONTROL",

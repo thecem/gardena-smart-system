@@ -1,21 +1,26 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Der Standort ist bereits konfiguriert"
+      "already_configured": "Gardena Smart System ist bereits konfiguriert."
     },
     "error": {
-      "cannot_connect": "Verbindung fehlgeschlagen, versuchen Sie es erneut.",
-      "invalid_auth": "Ungültige Authentifizierung.",
-      "too_many_requests": "Zu viele Anfragen, versuchen Sie es später erneut.",
-      "unknown": "Unerwarteter Fehler."
+      "auth": "Authentifizierung fehlgeschlagen. Überprüfen Sie Ihre Application Key und Application Secret.",
+      "cannot_connect": "Verbindung zur Gardena API fehlgeschlagen.",
+      "invalid_auth": "Ungültige Authentifizierungsdaten.",
+      "invalid_application_key": "Application Key ist ungültig. Überprüfen Sie Ihre Application Key aus der Husqvarna Developer Console.",
+      "invalid_application_secret": "Application Secret ist ungültig. Überprüfen Sie Ihr Application Secret aus der Husqvarna Developer Console.",
+      "access_denied": "Zugriff verweigert. Stellen Sie sicher, dass Ihre Application die erforderlichen API-Berechtigungen hat.",
+      "timeout": "Zeitüberschreitung bei der Verbindung zur Gardena API. Versuchen Sie es später erneut.",
+      "unknown": "Unbekannter Fehler aufgetreten.",
+      "simultaneous_logins": "Gleichzeitige Anmeldungen erkannt. Schließen Sie die Gardena App vollständig, warten Sie 5 Minuten und versuchen Sie es erneut. Alternativ erstellen Sie eine neue Application.",
+      "invalid_request": "Ungültige API-Anfrage. Überprüfen Sie Ihre Application Konfiguration in der Developer Console."
     },
     "step": {
       "user": {
-        "description": "Bitte geben Sie Ihre Anmeldeinformationen ein.",
+        "description": "Richten Sie Ihre Gardena Smart System Integration ein.\n\n**Schritt 1:** Besuchen Sie die [Husqvarna Developer Console]({docs_url})\n**Schritt 2:** Erstellen Sie eine Application\n**Schritt 3:** Klicken Sie auf 'Connect an API' und wählen Sie 'Gardena smart system API'\n**Schritt 4:** Kopieren Sie die Application Key und Application Secret hierher",
         "data": {
-          "email": "E-Mail",
-          "password": "Passwort",
-          "client_id": "Application Key / Client ID"
+          "application_key": "Application Key",
+          "application_secret": "Application Secret"
         },
         "title": "Gardena Smart System"
       }
@@ -23,13 +28,18 @@
   },
   "options": {
     "step": {
+      "init": {
+        "description": "Erweiterte Einstellungen für die Gardena Integration.",
+        "title": "Gardena Smart System Optionen"
+      },
       "user": {
+        "title": "Gardena Smart System Optionen",
+        "description": "Konfigurieren Sie die Standardlaufzeiten für Ihre Gardena Geräte.",
         "data": {
-          "mower_duration": "Mäherdauer (Minuten)",
-          "smart_irrigation_control_duration": "Smart Irrigation Control Dauer (Minuten)",
-          "smart_watering_duration": "Smarte Bewässerungs Dauer (Minuten)"
-        },
-        "title": "Gardena Smart System - Optionen"
+          "mower_duration": "Standard Mähdauer (Minuten)",
+          "smart_irrigation_duration": "Standard Bewässerungsdauer (Minuten)",
+          "smart_watering_duration": "Standard Bewässerungsdauer (Minuten)"
+        }
       }
     }
   },

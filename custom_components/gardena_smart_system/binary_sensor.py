@@ -1,81 +1,22 @@
-"""Support for Gardena Smart System websocket connection status."""
+"""Binary sensor platform for Gardena Smart System."""
+
+import logging
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
-
-from custom_components.gardena_smart_system import GARDENA_SYSTEM
-
-from .const import DOMAIN
-
-
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    """Perform the setup for Gardena websocket connection status."""
-    async_add_entities(
-        [SmartSystemWebsocketStatus(hass.data[DOMAIN][GARDENA_SYSTEM].smart_system)],
-        True,
-    )
-
-
-class SmartSystemWebsocketStatus(BinarySensorEntity):
-    """Representation of Gardena Smart System websocket connection status."""
-
-    def __init__(self, smart_system) -> None:
-        """Initialize the binary sensor."""
-        super().__init__()
-        self._unique_id = "smart_gardena_websocket_status"
-        self._name = "Gardena Smart System connection"
-        self._smart_system = smart_system
-
-    async def async_added_to_hass(self):
-        """Subscribe to events."""
-        self._smart_system.add_ws_status_callback(self.update_callback)
-
-    @property
-    def name(self):
-        """Return the name of the device."""
-        return self._name
-
-    @property
-    def unique_id(self) -> str:
-        """Return a unique ID."""
-        return self._unique_id
-
-    @property
-    def is_on(self) -> bool:
-        """Return the status of the sensor."""
-        return self._smart_system.is_ws_connected
-
-    @property
-    def should_poll(self) -> bool:
-        """No polling needed for a sensor."""
-        return False
-
-    def update_callback(self, status):
-        """Call update for Home Assistant when the device is updated."""
-        self.schedule_update_ha_state(True)
-
-    @property
-    def device_class(self):
-        """Return the class of this device, from component DEVICE_CLASSES."""
-        return BinarySensorDeviceClass.CONNECTIVITY
-
-
-"""Binary sensor platform for Gardena Smart System."""
-
-import logging
-
-from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     ATTR_BATTERY_STATE,
     ATTR_RF_LINK_LEVEL,
     ATTR_RF_LINK_STATE,
+    DOMAIN,
     GARDENA_LOCATION,
 )
 
@@ -83,78 +24,61 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant,
+    _config_entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Gardena Smart System binary sensor entities."""
-    _LOGGER.debug("Setting up Gardena Smart System binary sensor entities")
-
+    """Set up the binary sensor platform."""
     entities = []
 
-    # Mower connectivity sensors
-    for mower in hass.data[DOMAIN][GARDENA_LOCATION].find_device_by_type("MOWER"):
-        entities.append(GardenaConnectivitySensor(mower))
+    # Get the location from hass data
+    location = hass.data[DOMAIN][GARDENA_LOCATION]
 
-    # Smart irrigation control connectivity sensors
-    for irrigation_control in hass.data[DOMAIN][GARDENA_LOCATION].find_device_by_type(
-        "SMART_IRRIGATION_CONTROL"
-    ):
-        entities.append(GardenaConnectivitySensor(irrigation_control))
+    # Add websocket status sensor using the location's smart_system
+    entities.append(SmartSystemWebsocketStatus(location.smart_system))
 
-    # Power socket connectivity sensors
-    for power_socket in hass.data[DOMAIN][GARDENA_LOCATION].find_device_by_type(
-        "POWER_SOCKET"
-    ):
-        entities.append(GardenaConnectivitySensor(power_socket))
+    # Add connectivity sensors for all device types
+    for device_type in [
+        "MOWER",
+        "SMART_IRRIGATION_CONTROL",
+        "POWER_SOCKET",
+        "SENSOR",
+        "WATER_CONTROL",
+    ]:
+        for device in location.find_device_by_type(device_type):
+            entities.append(GardenaConnectivitySensor(device))
 
-    # Sensor connectivity sensors
-    for sensor in hass.data[DOMAIN][GARDENA_LOCATION].find_device_by_type("SENSOR"):
-        entities.append(GardenaConnectivitySensor(sensor))
-
-    # Water control connectivity sensors
-    for water_control in hass.data[DOMAIN][GARDENA_LOCATION].find_device_by_type(
-        "WATER_CONTROL"
-    ):
-        entities.append(GardenaConnectivitySensor(water_control))
-
-    _LOGGER.debug("Adding %d binary sensor entities", len(entities))
-    async_add_entities(entities, True)
+    async_add_entities(entities, update_before_add=True)
 
 
-class GardenaBaseBinarySensor(BinarySensorEntity):
-    """Base class for Gardena binary sensors."""
+class SmartSystemWebsocketStatus(BinarySensorEntity):
+    """Representation of Gardena Smart System websocket connection status."""
 
-    def __init__(self, device, sensor_type):
-        """Initialize the Gardena binary sensor."""
+    def __init__(self, smart_system: Any) -> None:
+        """Initialize the websocket status sensor."""
+        self._smart_system = smart_system
+        self._attr_name = "Gardena Smart System Websocket"
+        self._attr_unique_id = "gardena_smart_system_websocket_status"
+
+    @property
+    def is_on(self) -> bool:
+        """Return true if the websocket is connected."""
+        return self._smart_system.is_ws_connected
+
+    @property
+    def device_class(self) -> str:
+        """Return the class of this device."""
+        return BinarySensorDeviceClass.CONNECTIVITY
+
+
+class GardenaConnectivitySensor(BinarySensorEntity):
+    """Representation of a Gardena device connectivity sensor."""
+
+    def __init__(self, device: Any) -> None:
+        """Initialize the connectivity sensor."""
         self._device = device
-        self._sensor_type = sensor_type
-
-    async def async_added_to_hass(self):
-        """Subscribe to device events."""
-        self._device.add_callback(self.update_callback)
-
-    @property
-    def should_poll(self) -> bool:
-        """No polling needed for binary sensors."""
-        return False
-
-    def update_callback(self, device):
-        """Call update for Home Assistant when the device is updated."""
-        self.schedule_update_ha_state(True)
-
-    @property
-    def name(self):
-        """Return the name of the binary sensor."""
-        return self._name
-
-    @property
-    def unique_id(self) -> str:
-        """Return a unique ID."""
-        return self._unique_id
-
-    @property
-    def available(self) -> bool:
-        """Return True if the device is available."""
-        return True
+        self._attr_name = f"{device.name} Connectivity"
+        self._attr_unique_id = f"{device.serial}_connectivity"
 
     @property
     def is_on(self) -> bool:
@@ -162,19 +86,26 @@ class GardenaBaseBinarySensor(BinarySensorEntity):
         return getattr(self._device, ATTR_RF_LINK_STATE, "OFFLINE") == "ONLINE"
 
     @property
-    def extra_state_attributes(self):
-        """Return the state attributes of the binary sensor."""
+    def device_class(self) -> str:
+        """Return the class of this device."""
+        return BinarySensorDeviceClass.CONNECTIVITY
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the state attributes."""
         attributes = {}
 
-        # Add battery info if available
-        if hasattr(self._device, "battery_level"):
-            attributes[ATTR_BATTERY_STATE] = self._device.battery_state
-            attributes["battery_level"] = self._device.battery_level
+        # Add battery state if available
+        if hasattr(self._device, ATTR_BATTERY_STATE):
+            attributes[ATTR_BATTERY_STATE] = getattr(self._device, ATTR_BATTERY_STATE)
 
-        # Add RF link info if available
-        if hasattr(self._device, "rf_link_level"):
-            attributes[ATTR_RF_LINK_LEVEL] = self._device.rf_link_level
-            attributes[ATTR_RF_LINK_STATE] = self._device.rf_link_state
+        # Add RF link level if available
+        if hasattr(self._device, ATTR_RF_LINK_LEVEL):
+            attributes[ATTR_RF_LINK_LEVEL] = getattr(self._device, ATTR_RF_LINK_LEVEL)
+
+        # Add RF link state if available
+        if hasattr(self._device, ATTR_RF_LINK_STATE):
+            attributes[ATTR_RF_LINK_STATE] = getattr(self._device, ATTR_RF_LINK_STATE)
 
         return attributes
 
@@ -185,20 +116,9 @@ class GardenaBaseBinarySensor(BinarySensorEntity):
             identifiers={(DOMAIN, self._device.serial)},
             name=self._device.name,
             manufacturer="Gardena",
-            model=self._device.model_type,
+            model=getattr(self._device, "model_type", "Unknown"),
         )
 
-
-class GardenaConnectivitySensor(GardenaBaseBinarySensor):
-    """Representation of a Gardena connectivity sensor."""
-
-    def __init__(self, device):
-        """Initialize the Gardena connectivity sensor."""
-        super().__init__(device, "connectivity")
-        self._name = f"{device.name} connectivity"
-        self._unique_id = f"{device.serial}-connectivity"
-
-    @property
-    def device_class(self):
-        """Return the device class."""
-        return "connectivity"
+    def update_callback(self) -> None:
+        """Update the sensor state."""
+        self.schedule_update_ha_state(force_refresh=True)

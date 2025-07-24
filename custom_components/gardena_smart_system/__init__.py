@@ -5,7 +5,15 @@ import logging
 import sys
 from pathlib import Path
 
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
+
+from .const import (
+    DOMAIN,
+    GARDENA_LOCATION,
+    GARDENA_SYSTEM,
+)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema("gardena_smart_system")
 
@@ -14,219 +22,301 @@ current_dir = Path(__file__).parent
 if str(current_dir) not in sys.path:
     sys.path.insert(0, str(current_dir))
 
-# Import gardena modules
-from gardena.exceptions.authentication_exception import AuthenticationException
-from gardena.smart_system import SmartSystem, get_ssl_context
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    CONF_CLIENT_ID,
-    CONF_CLIENT_SECRET,
-    EVENT_HOMEASSISTANT_STOP,
-)
-from homeassistant.core import HomeAssistant
-from oauthlib.oauth2.rfc6749.errors import (
-    AccessDeniedError,
-    InvalidClientError,
-    MissingTokenError,
+# Import gardena modules after path setup
+from gardena.exceptions.authentication_exception import (
+    AuthenticationException,
 )
 
-from .const import (
-    DOMAIN,
-    GARDENA_LOCATION,
-    GARDENA_SYSTEM,
-)
+from .gardena.location import Location  # noqa: E402
+from .gardena.smart_system import SmartSystem  # noqa: E402
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = ["sensor", "switch", "valve", "binary_sensor", "lawn_mower"]
 
+
+async def _check_and_cleanup_existing_sessions(hass: HomeAssistant) -> None:
+    """Check for and cleanup any existing sessions or WebSocket connections."""
+    _LOGGER.debug("Checking for existing Gardena sessions in Home Assistant")
+
+    # Check if DOMAIN exists and has active sessions
+    if DOMAIN in hass.data:
+        domain_data = hass.data[DOMAIN]
+        cleanup_performed = False
+
+        # Check for existing SmartSystem instances
+        for key, value in list(domain_data.items()):
+            if isinstance(value, SmartSystem):
+                _LOGGER.warning("Found existing SmartSystem session, cleaning up...")
+                cleanup_performed = True
+                try:
+                    await value.quit()
+                    _LOGGER.debug("Successfully cleaned up SmartSystem session")
+                    # Remove from data
+                    domain_data.pop(key, None)
+                except Exception as ex:
+                    _LOGGER.debug("Error during SmartSystem cleanup: %s", ex)
+
+            # Check for GardenaSmartSystem instances
+            elif hasattr(value, "smart_system") and hasattr(value, "stop"):
+                _LOGGER.warning(
+                    "Found existing GardenaSmartSystem session, cleaning up..."
+                )
+                cleanup_performed = True
+                try:
+                    await value.stop()
+                    _LOGGER.debug("Successfully cleaned up GardenaSmartSystem session")
+                    # Remove from data
+                    domain_data.pop(key, None)
+                except Exception as ex:
+                    _LOGGER.debug("Error during GardenaSmartSystem cleanup: %s", ex)
+
+        if cleanup_performed:
+            # Additional wait to ensure sessions are fully terminated
+            _LOGGER.debug("Waiting for session cleanup to complete...")
+            await asyncio.sleep(8)  # Increased wait time
+        else:
+            _LOGGER.debug("No existing sessions found to cleanup")
+    else:
+        _LOGGER.debug("No domain data found")
+
+
+async def _authenticate_with_retry(
+    smart_system: SmartSystem, hass: HomeAssistant
+) -> None:
+    """Authenticate with retry logic for simultaneous logins."""
+    max_retries = 3  # Reduced since we now have better cleanup
+    base_wait_time = 15  # Reduced base wait time since cleanup is more thorough
+
+    for attempt in range(max_retries):
+        try:
+            # For retry attempts, ensure clean state
+            if attempt > 0:
+                _LOGGER.debug("Cleaning up before retry attempt %d", attempt + 1)
+
+                # Check for and cleanup any existing sessions first
+                await _check_and_cleanup_existing_sessions(hass)
+
+                # Force logout current session
+                try:
+                    await smart_system.quit()
+                    _LOGGER.debug("Current SmartSystem session terminated")
+                except Exception as ex:
+                    _LOGGER.debug("Error during current session cleanup: %s", ex)
+
+                # Progressive wait for API session cleanup
+                cleanup_wait = 5 + (attempt * 5)  # 5s, 10s, 15s
+                _LOGGER.debug(
+                    "Waiting %d seconds for API session cleanup", cleanup_wait
+                )
+                await asyncio.sleep(cleanup_wait)
+
+            _LOGGER.debug("Authentication attempt %d/%d", attempt + 1, max_retries)
+            await smart_system.authenticate()
+            _LOGGER.info("Authentication successful on attempt %d", attempt + 1)
+            return
+
+        except Exception as ex:
+            error_msg = str(ex).lower()
+
+            # Check for simultaneous login error specifically
+            is_simultaneous_login = (
+                "simultaneous logins detected" in error_msg
+                or "simultaneous login" in error_msg
+                or ("invalid_request" in error_msg and "client" in error_msg)
+                or "already authenticated" in error_msg
+                or "session already exists" in error_msg
+            )
+
+            if is_simultaneous_login and attempt < max_retries - 1:
+                wait_time = base_wait_time + (attempt * 10)  # 15s, 25s, 35s
+                _LOGGER.warning(
+                    "Simultaneous login detected (attempt %d/%d). This indicates "
+                    "an existing session is still active from this integration. "
+                    "Performing thorough cleanup and waiting %d seconds...",
+                    attempt + 1,
+                    max_retries,
+                    wait_time,
+                )
+                _LOGGER.info(
+                    "Session conflict resolution:\n"
+                    "1) Checking for other Home Assistant instances with this integration\n"
+                    "2) Cleaning up any remaining WebSocket connections\n"
+                    "3) Ensuring proper session termination on API server\n"
+                    "Note: The official Gardena app uses different credentials and should not conflict"
+                )
+                await asyncio.sleep(wait_time)
+                continue
+
+            # For final attempt or non-login errors, provide helpful context
+            if attempt == max_retries - 1:
+                _LOGGER.exception(
+                    "Authentication failed after %d attempts",
+                    max_retries,
+                )
+                if is_simultaneous_login:
+                    _LOGGER.warning("Session conflict persists. Possible causes:")
+                    _LOGGER.warning(
+                        "1. Another Home Assistant instance is running this integration"
+                    )
+                    _LOGGER.warning(
+                        "2. Previous session cleanup did not complete properly"
+                    )
+                    _LOGGER.warning(
+                        "3. WebSocket connection from previous session still active"
+                    )
+                    _LOGGER.warning(
+                        "4. Manual restart of Home Assistant may be required"
+                    )
+
+            # Re-raise the original exception
+            raise
+
+
 # Create SSL context outside of event loop
-_SSL_CONTEXT = get_ssl_context()
+# Remove the SSL context line
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Gardena Smart System component."""
     hass.data.setdefault(DOMAIN, {})
 
-    # Register mower control services
-    async def start_mowing_service(call):
-        """Service to start mowing."""
-        duration = call.data.get("duration", 60)
-        # Implementation depends on the specific mower entity
-        # This would need to be implemented based on the actual device structure
+    # Defer service registration to avoid blocking startup
+    async def _register_services_background():
+        """Register integration services in background."""
 
-    async def park_until_next_task_service(call):
-        """Service to park mower until next task."""
-        # Implementation depends on the specific mower entity
+        # Register mower control services
+        async def start_mowing_service(call: ServiceCall) -> None:
+            """Service to start mowing."""
+            call.data.get("duration", 60)
+            # Implementation depends on the specific mower entity
+            # This would need to be implemented based on the actual device structure
 
-    async def park_until_further_notice_service(call):
-        """Service to park mower until further notice."""
-        # Implementation depends on the specific mower entity
+        async def park_until_next_task_service(call: ServiceCall) -> None:
+            """Service to park mower until next task."""
+            # Implementation depends on the specific mower entity
 
-    async def start_dont_override_service(call):
-        """Service to start automatic mode."""
-        # Implementation depends on the specific mower entity
+        async def park_until_further_notice_service(call: ServiceCall) -> None:
+            """Service to park mower until further notice."""
+            # Implementation depends on the specific mower entity
 
-    # Register services
-    hass.services.async_register(DOMAIN, "start_mowing", start_mowing_service)
-    hass.services.async_register(
-        DOMAIN, "park_until_next_task", park_until_next_task_service
-    )
-    hass.services.async_register(
-        DOMAIN, "park_until_further_notice", park_until_further_notice_service
-    )
-    hass.services.async_register(
-        DOMAIN, "start_dont_override", start_dont_override_service
+        async def start_dont_override_service(call: ServiceCall) -> None:
+            """Service to start automatic mode."""
+            # Implementation depends on the specific mower entity
+
+        # Register services
+        hass.services.async_register(DOMAIN, "start_mowing", start_mowing_service)
+        hass.services.async_register(
+            DOMAIN, "park_until_next_task", park_until_next_task_service
+        )
+        hass.services.async_register(
+            DOMAIN, "park_until_further_notice", park_until_further_notice_service
+        )
+        hass.services.async_register(
+            DOMAIN, "start_dont_override", start_dont_override_service
+        )
+
+    # Register services in background to not block startup
+    hass.async_create_task(
+        _register_services_background(), name="gardena_services_setup"
     )
 
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    _LOGGER.debug("Setting up Gardena Smart System component")
+    """Set up Gardena Smart System from a config entry."""
+    hass.data.setdefault(DOMAIN, {})
 
-    # Log client_id for debugging (but not the secret)
-    client_id = entry.data[CONF_CLIENT_ID]
-    _LOGGER.debug(
-        "Using client_id: %s...%s",
-        client_id[:8],
-        client_id[-4:] if len(client_id) > 12 else "***",
+    # Create SmartSystem instance directly for initial setup
+    smart_system = SmartSystem(
+        client_id=entry.data["application_key"],
+        client_secret=entry.data["application_secret"],
     )
 
-    gardena_system = GardenaSmartSystem(
-        hass,
-        client_id=client_id,
-        client_secret=entry.data[CONF_CLIENT_SECRET],
-    )
+    # Store in hass data immediately
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = smart_system
 
-    retry_count = 0
-    max_retries = 5  # Limit retries to avoid infinite loop
-
-    while retry_count < max_retries:
+    # Create a background task for complete setup including platform forwarding
+    async def _complete_setup_background():
+        """Complete setup including authentication, device loading, and platform forwarding."""
         try:
+            # Add timeout and retry logic for authentication
+            await asyncio.wait_for(
+                _authenticate_with_retry(smart_system, hass),
+                timeout=120,  # 2 minutes total timeout
+            )
+
+            # After successful authentication, update locations
+            await smart_system.update_locations()
             _LOGGER.debug(
-                "Attempting to start Gardena Smart System (attempt %d/%d)",
-                retry_count + 1,
-                max_retries,
+                "Successfully loaded %d location(s)", len(smart_system.locations)
             )
+
+            # Ensure we have at least one location
+            if not smart_system.locations:
+                _LOGGER.error("No locations found in your Gardena account")
+                # Clean up and mark as failed
+                hass.data[DOMAIN].pop(entry.entry_id, None)
+                return
+
+            # Load devices for each location
+            for location in smart_system.locations.values():
+                await smart_system.update_devices(location)
+                _LOGGER.debug(
+                    "Loaded %d devices for location %s",
+                    len(location.devices),
+                    location.name,
+                )
+
+            # Store location data for platforms to access
+            first_location = next(iter(smart_system.locations.values()))
+            hass.data[DOMAIN][GARDENA_LOCATION] = first_location
+
+            _LOGGER.info("Gardena Smart System setup completed successfully")
+
+            # Now forward entry setups to platforms with data available
+            await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+            _LOGGER.debug("Platforms setup completed successfully")
+
+            # After successful platform setup, create and start the WebSocket wrapper
+            gardena_system = GardenaSmartSystem(
+                hass=hass,
+                smart_system=smart_system,  # Pass the already authenticated instance
+            )
+
+            # Store the wrapper for WebSocket management
+            hass.data[DOMAIN][f"{entry.entry_id}_websocket"] = gardena_system
+
+            # Start WebSocket connection
+            _LOGGER.info("Starting WebSocket connection for real-time updates")
             await gardena_system.start()
-            _LOGGER.debug("Gardena Smart System started successfully")
-            break  # If connection is successful, break out of loop
-        except ConnectionError as ex:
-            retry_count += 1
-            _LOGGER.error(
-                "Error during GardenaSmartSystem start: %s", type(ex).__name__
-            )
-            if "ConnectTimeout" in str(ex) or "timeout" in str(ex).lower():
-                _LOGGER.error("Connection timeout occurred - this usually indicates:")
-                _LOGGER.error("1. Network connectivity issues")
-                _LOGGER.error("2. Gardena API service temporarily unavailable")
-                _LOGGER.error("3. DNS resolution problems")
-                _LOGGER.error("4. Firewall blocking the connection")
-            elif "404" in str(ex) or "not found" in str(ex).lower():
-                _LOGGER.error("If this is a 404 error, it might indicate:")
-                _LOGGER.error(
-                    "1. Your API credentials don't have access to the locations endpoint"
-                )
-                _LOGGER.error(
-                    "2. Your Gardena account has no registered locations/devices"
-                )
-                _LOGGER.error("3. There might be an issue with the Gardena API service")
-            else:
-                _LOGGER.warning(
-                    "Connection error (attempt %d/%d): %s", retry_count, max_retries, ex
-                )
+            _LOGGER.info("WebSocket connection setup completed")
 
-            if retry_count < max_retries:
-                wait_time = min(
-                    60 * retry_count, 300
-                )  # Progressive backoff, max 5 minutes
-                _LOGGER.debug("Waiting %d seconds before retry...", wait_time)
-                await asyncio.sleep(wait_time)
-            else:
-                _LOGGER.error("Max retries reached for connection errors")
-                return False
-        except AccessDeniedError as ex:
-            _LOGGER.error(
-                "Got Access Denied Error when setting up Gardena Smart System: %s", ex
-            )
-            _LOGGER.error(
-                "This usually means your client credentials are incorrect or your app doesn't have the required permissions"
-            )
-            return False
-        except InvalidClientError as ex:
-            _LOGGER.error(
-                "Got Invalid Client Error when setting up Gardena Smart System: %s", ex
-            )
-            _LOGGER.error(
-                "This usually means your client_id is incorrect or the application is not properly configured"
-            )
-            return False
-        except MissingTokenError as ex:
-            _LOGGER.error(
-                "Got Missing Token Error when setting up Gardena Smart System: %s", ex
-            )
-            _LOGGER.error(
-                "This usually means authentication failed or token refresh failed"
-            )
-            return False
         except Exception as ex:
-            # Handle OAuth errors specifically
-            if "simultaneous logins detected" in str(ex).lower():
-                _LOGGER.error(
-                    "Simultaneous logins detected for your Gardena account. This means:"
-                )
-                _LOGGER.error(
-                    "1. Another instance of Home Assistant or the Gardena app is already connected"
-                )
-                _LOGGER.error("2. You may need to wait a few minutes and try again")
-                _LOGGER.error(
-                    "3. Try closing the official Gardena app and restart Home Assistant"
-                )
-                return False
-            if "invalid_request" in str(ex).lower():
-                _LOGGER.error("Invalid OAuth request: %s", ex)
-                _LOGGER.error(
-                    "This usually indicates an issue with your API credentials or the OAuth flow"
-                )
-                return False
-            _LOGGER.error(
-                "Unexpected error during Gardena Smart System setup (attempt %d/%d): %s: %s",
-                retry_count + 1,
-                max_retries,
-                type(ex).__name__,
-                ex,
+            # Log the error and clean up
+            _LOGGER.exception(
+                "Failed to set up Gardena Smart System: %s", type(ex).__name__
             )
-            retry_count += 1
-            if retry_count < max_retries:
-                _LOGGER.debug("Waiting 60 seconds before retry...")
-                await asyncio.sleep(60)
-            else:
-                _LOGGER.error("Max retries reached for unexpected errors")
-                return False
+            # Clean up stored data on failure
+            hass.data[DOMAIN].pop(entry.entry_id, None)
+            if not hass.data[DOMAIN]:
+                hass.data.pop(DOMAIN, None)
 
-    hass.data[DOMAIN][GARDENA_SYSTEM] = gardena_system
-
-    hass.bus.async_listen_once(
-        EVENT_HOMEASSISTANT_STOP,
-        lambda event: hass.async_create_task(gardena_system.stop()),
+    # Start complete setup in background
+    _LOGGER.debug("Starting Gardena Smart System complete setup in background")
+    hass.async_create_task(
+        _complete_setup_background(), name=f"gardena_complete_setup_{entry.entry_id}"
     )
 
-    _LOGGER.debug("Setting up platforms...")
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    # Register services
-    _LOGGER.debug("Registering Gardena Smart System services...")
-    await _register_services(hass, gardena_system)
-
-    _LOGGER.debug("Gardena Smart System component setup finished")
+    # Return True immediately to not block HA startup at all
     return True
 
 
-async def _register_services(hass: HomeAssistant, gardena_system):
+async def _register_services(hass: HomeAssistant, gardena_system) -> None:
     """Register integration services."""
 
-    async def websocket_diagnostics_service(call):
+    async def websocket_diagnostics_service(call: ServiceCall):
         """Handle websocket diagnostics service call."""
         detailed = call.data.get("detailed", False)
 
@@ -258,19 +348,18 @@ async def _register_services(hass: HomeAssistant, gardena_system):
 
         return diagnostics
 
-    async def reload_service(call):
+    async def reload_service(call: ServiceCall) -> None:
         """Handle reload service call."""
         _LOGGER.info("Reload service called")
         # Find the config entry for this integration
         for config_entry in hass.config_entries.async_entries(DOMAIN):
-            _LOGGER.info(f"Reloading config entry: {config_entry.title}")
+            _LOGGER.info("Reloading config entry: %s", config_entry.title)
             await hass.config_entries.async_reload(config_entry.entry_id)
 
     hass.services.async_register(
         DOMAIN,
         "websocket_diagnostics",
         websocket_diagnostics_service,
-        supports_response=True,
     )
 
     hass.services.async_register(DOMAIN, "reload", reload_service)
@@ -284,17 +373,30 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        # Stop the GardenaSmartSystem and clean up resources
+        # Stop the SmartSystem and clean up resources properly
+        smart_system = hass.data[DOMAIN].get(entry.entry_id)
+        if smart_system:
+            _LOGGER.debug("Stopping SmartSystem and cleaning up session")
+            try:
+                # Ensure proper logout to clean up API session
+                await smart_system.quit()
+                _LOGGER.debug("SmartSystem session cleaned up successfully")
+                # Additional wait to ensure session is fully terminated on server side
+                await asyncio.sleep(3)
+            except Exception as ex:
+                _LOGGER.warning("Error during SmartSystem cleanup: %s", ex)
+
+        # Clean up legacy GardenaSmartSystem if it exists
         gardena_system = hass.data[DOMAIN].get(GARDENA_SYSTEM)
         if gardena_system:
-            _LOGGER.debug("Stopping Gardena Smart System")
+            _LOGGER.debug("Stopping legacy GardenaSmartSystem")
             try:
                 await gardena_system.stop()
                 # Give a moment for the WebSocket to close properly
                 _LOGGER.debug("Waiting for WebSocket connection to close...")
                 await asyncio.sleep(2)
             except Exception as ex:
-                _LOGGER.warning(f"Error during GardenaSmartSystem stop: {ex}")
+                _LOGGER.warning("Error during GardenaSmartSystem stop: %s", ex)
 
         # Unregister services if this is the last config entry
         remaining_entries = [
@@ -325,41 +427,41 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 class GardenaSmartSystem:
     """A Gardena Smart System wrapper class."""
 
-    def __init__(self, hass, client_id, client_secret):
+    def __init__(
+        self, hass, smart_system=None, client_id=None, client_secret=None
+    ) -> None:
         """Initialize the Gardena Smart System."""
         self._hass = hass
         self._ws_task = None
         self._shutdown_event = asyncio.Event()
         _LOGGER.debug("Initializing GardenaSmartSystem wrapper")
-        self.smart_system = SmartSystem(
-            client_id=client_id,
-            client_secret=client_secret,
-            ssl_context=_SSL_CONTEXT,  # Use the pre-created SSL context
-        )
 
-    async def start(self):
-        try:
-            _LOGGER.debug("Starting GardenaSmartSystem authentication process")
-            await self.smart_system.authenticate()
-            _LOGGER.debug("Authentication successful, updating locations...")
-
-            await self.smart_system.update_locations()
-            _LOGGER.debug(f"Found {len(self.smart_system.locations)} location(s)")
-
-            if len(self.smart_system.locations) < 1:
-                _LOGGER.error("No locations found in your Gardena account")
-                _LOGGER.error(
-                    "Please check if your Gardena account has any registered devices/locations"
+        # Use existing smart_system if provided, otherwise create new one
+        if smart_system:
+            self.smart_system = smart_system
+        else:
+            if not client_id or not client_secret:
+                raise ValueError(
+                    "Either smart_system or both client_id and client_secret must be provided"
                 )
-                raise Exception("No locations found")
+            self.smart_system = SmartSystem(
+                client_id=client_id,
+                client_secret=client_secret,
+            )
 
-            # currently gardena supports only one location and gateway, so we can take the first
-            location = list(self.smart_system.locations.values())[0]
-            _LOGGER.debug(f"Using location: {location.name} ({location.id})")
+    async def start(self) -> None:
+        """Start WebSocket connection using existing authenticated smart_system."""
+        try:
+            _LOGGER.debug("Starting GardenaSmartSystem websocket connection")
 
-            _LOGGER.debug("Updating devices for location...")
-            await self.smart_system.update_devices(location)
-            _LOGGER.debug(f"Found {len(location.devices)} device(s) in location")
+            # Skip authentication since smart_system is already authenticated
+            if not self.smart_system.locations:
+                _LOGGER.error("No locations available for WebSocket connection")
+                return
+
+            # Use the first (and typically only) location
+            location = next(iter(self.smart_system.locations.values()))
+            _LOGGER.debug("Using location: %s (%s)", location.name, location.id)
 
             # Ensure hass.data[DOMAIN] is initialized
             if DOMAIN not in self._hass.data:
@@ -375,33 +477,19 @@ class GardenaSmartSystem:
             self._ws_task.add_done_callback(self._websocket_task_done_callback)
             _LOGGER.debug("Websocket task created and launched with management")
 
-        except AuthenticationException as ex:
-            _LOGGER.error(f"Authentication failed: {ex.message}")
-            _LOGGER.error(
-                "Please check your client_id and client_secret, or create a new app in the Gardena API portal"
-            )
-            raise
-        except Exception as ex:
-            _LOGGER.error(
-                f"Error during GardenaSmartSystem start: {type(ex).__name__}: {ex}"
-            )
-            _LOGGER.error("If this is a 404 error, it might indicate:")
-            _LOGGER.error(
-                "1. Your API credentials don't have access to the locations endpoint"
-            )
-            _LOGGER.error("2. Your Gardena account has no registered locations/devices")
-            _LOGGER.error("3. There might be an issue with the Gardena API service")
+        except Exception:
+            _LOGGER.exception("Error during GardenaSmartSystem WebSocket start")
             raise
 
-    async def _managed_websocket_connection(self, location):
-        """Managed WebSocket connection with improved error handling and reconnection."""
+    async def _managed_websocket_connection(self, location: "Location") -> None:
+        """Manage WebSocket connection with improved error handling and reconnection."""
         reconnect_delay = 5  # Initial delay in seconds
         max_reconnect_delay = 300  # Maximum delay (5 minutes)
         reconnect_attempts = 0
 
         while not self._shutdown_event.is_set():
             try:
-                _LOGGER.debug(f"WebSocket connection attempt {reconnect_attempts + 1}")
+                _LOGGER.debug("WebSocket connection attempt %d", reconnect_attempts + 1)
                 await self.smart_system.start_ws(location)
                 # If we get here, the WebSocket loop ended normally
                 if self._shutdown_event.is_set():
@@ -409,8 +497,8 @@ class GardenaSmartSystem:
                     break
                 _LOGGER.warning("WebSocket connection ended unexpectedly")
 
-            except Exception as ex:
-                _LOGGER.error(f"WebSocket connection error: {type(ex).__name__}: {ex}")
+            except Exception:
+                _LOGGER.exception("WebSocket connection error")
                 reconnect_attempts += 1
 
             # Exponential backoff for reconnection
@@ -420,7 +508,9 @@ class GardenaSmartSystem:
                     max_reconnect_delay,
                 )
                 _LOGGER.info(
-                    f"Reconnecting WebSocket in {current_delay} seconds (attempt {reconnect_attempts})"
+                    "Reconnecting WebSocket in %d seconds (attempt %d)",
+                    current_delay,
+                    reconnect_attempts,
                 )
 
                 try:
@@ -433,17 +523,17 @@ class GardenaSmartSystem:
 
         _LOGGER.debug("WebSocket management task ending")
 
-    def _websocket_task_done_callback(self, task):
+    def _websocket_task_done_callback(self, task: asyncio.Task) -> None:
         """Handle WebSocket task completion or failure."""
         if task.cancelled():
             _LOGGER.debug("WebSocket task was cancelled")
         elif task.exception():
-            _LOGGER.error(f"WebSocket task failed with exception: {task.exception()}")
+            _LOGGER.error("WebSocket task failed with exception: %s", task.exception())
         else:
             _LOGGER.debug("WebSocket task completed normally")
 
     @property
-    def is_websocket_connected(self):
+    def is_websocket_connected(self) -> bool:
         """Check if WebSocket is connected."""
         return (
             self._ws_task is not None
@@ -452,7 +542,7 @@ class GardenaSmartSystem:
         )
 
     @property
-    def websocket_task_status(self):
+    def websocket_task_status(self) -> str:
         """Get WebSocket task status for debugging."""
         if self._ws_task is None:
             return "not_started"
@@ -464,7 +554,8 @@ class GardenaSmartSystem:
             return "completed"
         return "running"
 
-    async def stop(self):
+    async def stop(self) -> None:
+        """Stop the GardenaSmartSystem and clean up resources."""
         _LOGGER.debug("Stopping GardenaSmartSystem")
 
         # Signal shutdown to WebSocket management
@@ -478,8 +569,6 @@ class GardenaSmartSystem:
                 await asyncio.wait_for(self._ws_task, timeout=10.0)
             except (TimeoutError, asyncio.CancelledError):
                 _LOGGER.debug("WebSocket task cancelled/timed out")
-            except Exception as ex:
-                _LOGGER.warning(f"Error while cancelling WebSocket task: {ex}")
 
         # Stop the underlying smart system
         await self.smart_system.quit()

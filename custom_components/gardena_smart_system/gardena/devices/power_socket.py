@@ -8,7 +8,7 @@ from .base_device import BaseDevice
 class PowerSocket(BaseDevice):
     """Power socket device for smart power control."""
 
-    def __init__(self, location, device_map):
+    def __init__(self, location, device_map) -> None:
         """Initialize the Power socket device."""
         BaseDevice.__init__(self, location, device_map["COMMON"][0]["id"])
         self.type = "POWER_SOCKET"
@@ -23,7 +23,7 @@ class PowerSocket(BaseDevice):
 
         self.setup_values_from_device_map(device_map)
 
-    def update_device_specific_data(self, device_map):
+    def update_device_specific_data(self, device_map) -> None:
         """Update power socket specific data."""
         if device_map["type"] == "POWER_SOCKET":
             # Standard attributes
@@ -34,7 +34,7 @@ class PowerSocket(BaseDevice):
             # Duration attributes for override operations
             self.set_duration_attributes("override", device_map, "overrideDuration")
 
-    async def start_seconds_to_override(self, duration):
+    async def start_seconds_to_override(self, duration) -> None:
         """Start override operation for specified duration in seconds."""
         data = {
             "id": str(uuid.uuid1()),
@@ -43,7 +43,7 @@ class PowerSocket(BaseDevice):
         }
         await self.location.smart_system.call_smart_system_service(self.id, data)
 
-    async def start_override(self):
+    async def start_override(self) -> None:
         """Start override operation without duration limit."""
         data = {
             "id": str(uuid.uuid1()),
@@ -52,7 +52,7 @@ class PowerSocket(BaseDevice):
         }
         await self.location.smart_system.call_smart_system_service(self.id, data)
 
-    async def stop_until_next_task(self):
+    async def stop_until_next_task(self) -> None:
         """Stop until next scheduled task."""
         data = {
             "id": str(uuid.uuid1()),
@@ -61,7 +61,7 @@ class PowerSocket(BaseDevice):
         }
         await self.location.smart_system.call_smart_system_service(self.id, data)
 
-    async def pause(self):
+    async def pause(self) -> None:
         """Pause the power socket operation."""
         data = {
             "id": str(uuid.uuid1()),
@@ -70,7 +70,7 @@ class PowerSocket(BaseDevice):
         }
         await self.location.smart_system.call_smart_system_service(self.id, data)
 
-    async def unpause(self):
+    async def unpause(self) -> None:
         """Resume the power socket operation."""
         data = {
             "id": str(uuid.uuid1()),
