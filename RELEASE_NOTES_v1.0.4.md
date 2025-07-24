@@ -39,7 +39,7 @@
 
 ### **Bug Fixes**
 - Fixed SSL blocking warnings during startup
-- Resolved authentication conflicts between multiple system components  
+- Resolved authentication conflicts between multiple system components
 - Fixed valve update mechanism synchronization issues
 - Corrected logger reference errors in valve entity creation
 - Resolved WebSocket connection establishment problems
@@ -60,7 +60,7 @@
 
 ## 🔧 **Technical Details**
 - Enhanced SSL context configuration for API connections
-- Implemented proper WebSocket task lifecycle management  
+- Implemented proper WebSocket task lifecycle management
 - Added background task architecture for non-blocking setup
 - Improved session management to prevent authentication conflicts
 
